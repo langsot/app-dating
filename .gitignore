@@ -1,0 +1,17 @@
+# Maven
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Node
+node_modules/
+
+# Локальные данные (загруженные фото)
+data/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: dating-app
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/dating}
+    username: ${DB_USER:dating}
+    password: ${DB_PASSWORD:dating}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.default_batch_fetch_size: 50
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: always
+
+app:
+  telegram:
+    bot-token: ${BOT_TOKEN:}
+    bot-username: ${BOT_USERNAME:}
+    web-app-url: ${WEB_APP_URL:http://localhost:8080}
+    init-data-max-age: 24h
+    api-base-url: https://api.telegram.org
+  jwt:
+    secret: ${JWT_SECRET:change-me-please-change-me-please-32b}
+    ttl: 12h
+  storage:
+    dir: ${STORAGE_DIR:./data/photos}
+  feed:
+    page-size: 10
+
+logging:
+  level:
+    ru.langsot.dating: INFO
