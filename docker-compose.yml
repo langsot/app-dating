@@ -31,23 +31,18 @@ services:
       WEB_APP_URL: https://${DOMAIN:?задайте DOMAIN в .env}
     volumes:
       - photos:/data/photos
-    # наружу порт не публикуется: доступ только через Caddy
+    # наружу порт не публикуется: доступ только через Cloudflare Tunnel
 
-  caddy:
-    image: caddy:2
+  # Исходящее соединение с Cloudflare: HTTPS и сертификат на стороне Cloudflare,
+  # входящие порты на сервере не нужны. Маршрут DOMAIN -> http://app:8080 задается в панели Cloudflare.
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
     restart: unless-stopped
     depends_on:
       - app
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+    command: ["tunnel", "--no-autoupdate", "run"]
     environment:
-      DOMAIN: ${DOMAIN}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?задайте CLOUDFLARE_TUNNEL_TOKEN в .env}
 
   # Тесты сервера (45 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
   tests:
@@ -69,5 +64,3 @@ volumes:
   maven-cache:
   db-data:
   photos:
-  caddy-data:
-  caddy-config:

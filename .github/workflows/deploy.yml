@@ -41,11 +41,12 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           missing=""
-          for name in DOMAIN SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS BOT_TOKEN JWT_SECRET DB_PASSWORD; do
+          for name in DOMAIN SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS CLOUDFLARE_TUNNEL_TOKEN BOT_TOKEN JWT_SECRET DB_PASSWORD; do
             [ -n "${!name}" ] || missing="$missing $name"
           done
           if [ -n "$missing" ]; then
@@ -75,13 +76,14 @@ jobs:
       - name: Запись .env на сервере
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           # Секреты передаются через stdin: их нет ни в командной строке, ни в журнале
           # shellcheck disable=SC2029 # APP_DIR намеренно подставляется на стороне раннера
-          printf 'DOMAIN=%s\nBOT_TOKEN=%s\nJWT_SECRET=%s\nDB_PASSWORD=%s\n' \
-            "$DOMAIN" "$BOT_TOKEN" "$JWT_SECRET" "$DB_PASSWORD" \
+          printf 'DOMAIN=%s\nCLOUDFLARE_TUNNEL_TOKEN=%s\nBOT_TOKEN=%s\nJWT_SECRET=%s\nDB_PASSWORD=%s\n' \
+            "$DOMAIN" "$CLOUDFLARE_TUNNEL_TOKEN" "$BOT_TOKEN" "$JWT_SECRET" "$DB_PASSWORD" \
             | ssh prod "umask 077 && cat > '$APP_DIR/.env'"
 
       - name: Обновление и перезапуск
