@@ -1,13 +1,14 @@
 // Системная проверка интерфейса в браузере с эмуляцией окружения Telegram Mini App + скриншоты.
 import { chromium } from "playwright";
-import { execFileSync } from "node:child_process";
+import pg from "pg";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { DEMO_BOT_TOKEN, makeInitData } from "./tg_initdata.mjs";
 
+const BASE = process.env.BASE || "http://localhost:8080";
+const DATABASE_URL = process.env.DATABASE_URL || "postgres://dating:dating@localhost:5432/dating";
 const OUT = process.env.OUT || "build/shots";
 mkdirSync(OUT, { recursive: true });
-const TOKEN = "123456789:DEMO-token-for-local-run";
-const initData = (id, name) => execFileSync("python3", ["-c",
-  `import sys; sys.path.insert(0,'tools'); from tg_initdata import make_init_data; print(make_init_data('${TOKEN}', ${id}, '${name}', 'u${id}'), end='')`]).toString();
+const initData = (id, name) => makeInitData(DEMO_BOT_TOKEN, id, name, `u${id}`);
 
 // Заглушка telegram-web-app.js: подписанные initData и имитация системной кнопки MainButton
 // (как в Telegram, при показе кнопки область веб-приложения уменьшается на ее высоту).
@@ -40,7 +41,7 @@ async function open(browser, id, name) {
   page.on("pageerror", (e) => check("JS", "ошибка JavaScript", false, e.message));
   await page.route("https://telegram.org/js/telegram-web-app.js", (r) =>
     r.fulfill({ contentType: "application/javascript", body: stub(initData(id, name), name) }));
-  await page.goto("http://localhost:8080/");
+  await page.goto(BASE + "/");
   return { ctx, page };
 }
 
@@ -116,7 +117,9 @@ const browser = await chromium.launch();
 
 // --- удаление (деактивация) анкеты и восстановление при повторном входе
 {
-  const psql = (q) => execFileSync("psql", ["-h", "localhost", "-U", "dating", "-d", "dating", "-tAc", q], { env: { ...process.env, PGPASSWORD: "dating" } }).toString().trim();
+  const db = new pg.Client({ connectionString: DATABASE_URL });
+  await db.connect();
+  const userStatus = async (tgId) => (await db.query("select status from users where telegram_id = $1", [tgId])).rows[0]?.status;
   let { ctx, page } = await open(browser, 2007, "Сергей");
   await page.waitForSelector(".tabbar", { timeout: 10000 });
   await page.click("text=Анкета");
@@ -124,15 +127,16 @@ const browser = await chromium.launch();
   const label = await page.locator("[data-testid=delete]").innerText();
   await page.click("[data-testid=delete]");
   const gone = await page.waitForSelector("[data-testid=deleted]", { timeout: 5000 }).then(() => true).catch(() => false);
-  const st1 = psql("select status from users where telegram_id = 2007");
+  const st1 = await userStatus(2007);
   check("С-09", "удаление анкеты: подтверждение вторым нажатием, учетная запись деактивирована", gone && label.includes("еще раз") && st1 === "DEACTIVATED", st1);
   await page.screenshot({ path: OUT + "/09_deleted.png" });
   await ctx.close();
   ({ ctx, page } = await open(browser, 2007, "Сергей"));
   await page.waitForSelector(".tabbar", { timeout: 10000 });
-  const st2 = psql("select status from users where telegram_id = 2007");
+  const st2 = await userStatus(2007);
   check("С-10", "повторный запуск восстанавливает учетную запись", st2 === "ACTIVE", st2);
   await ctx.close();
+  await db.end();
 }
 
 await browser.close();
