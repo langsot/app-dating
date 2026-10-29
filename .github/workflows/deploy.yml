@@ -1,0 +1,112 @@
+# Деплой на сервер по SSH после успешного CI на main (или вручную из main).
+# Секреты и переменные окружения production — см. DOCKER.md, раздел «Автодеплой из GitHub Actions».
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Деплой на сервер
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://${{ vars.DOMAIN }}
+    env:
+      DOMAIN: ${{ vars.DOMAIN }}
+      APP_DIR: ${{ vars.APP_DIR || 'app-dating' }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Проверка настроек
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          missing=""
+          for name in DOMAIN SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS BOT_TOKEN JWT_SECRET DB_PASSWORD; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Не заданы в окружении production:$missing"
+            exit 1
+          fi
+          if [ "${#JWT_SECRET}" -lt 32 ]; then
+            echo "::error::JWT_SECRET короче 32 символов"
+            exit 1
+          fi
+
+      - name: SSH-ключ
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host prod\n  HostName %s\n  User %s\n  Port %s\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n  BatchMode yes\n  StrictHostKeyChecking yes\n' \
+            "$SSH_HOST" "$SSH_USER" "$SSH_PORT" > ~/.ssh/config
+
+      - name: Запись .env на сервере
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          # Секреты передаются через stdin: их нет ни в командной строке, ни в журнале
+          # shellcheck disable=SC2029 # APP_DIR намеренно подставляется на стороне раннера
+          printf 'DOMAIN=%s\nBOT_TOKEN=%s\nJWT_SECRET=%s\nDB_PASSWORD=%s\n' \
+            "$DOMAIN" "$BOT_TOKEN" "$JWT_SECRET" "$DB_PASSWORD" \
+            | ssh prod "umask 077 && cat > '$APP_DIR/.env'"
+
+      - name: Обновление и перезапуск
+        run: |
+          # shellcheck disable=SC2029 # APP_DIR и SHA намеренно подставляются на стороне раннера
+          ssh prod "cd '$APP_DIR' \
+            && git fetch --quiet origin \
+            && git checkout --quiet --detach '$SHA' \
+            && docker compose up -d --build --remove-orphans \
+            && docker image prune -f"
+
+      - name: Проверка доступности
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null "https://$DOMAIN/api/interests"; then
+              echo "Приложение отвечает: https://$DOMAIN"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::https://$DOMAIN не отвечает после деплоя"
+          # shellcheck disable=SC2029
+          ssh prod "cd '$APP_DIR' && docker compose ps && docker compose logs --tail 50 app"
+          exit 1
+
+      - name: Удаление ключа
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
