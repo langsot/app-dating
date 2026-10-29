@@ -10,7 +10,10 @@
 - `tools/` — вспомогательные сценарии на Node.js: `tg_initdata.mjs` (подпись initData как в Telegram),
   `seed.mjs` (демо-данные), `load.mjs` (нагрузочный тест), `e2e.mjs` (системный тест в браузере, Playwright).
 
-## Сборка и тесты
+## Запуск в Docker (рекомендуется)
+См. [DOCKER.md](DOCKER.md): `cp .env.example .env`, заполнить, `docker compose up -d --build`.
+
+## Сборка и тесты без Docker
 ```bash
 # база для интеграционных тестов
 sudo -u postgres psql -c "CREATE ROLE dating LOGIN PASSWORD 'dating'"
