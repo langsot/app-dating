@@ -12,6 +12,7 @@
 
 ## Запуск в Docker (рекомендуется)
 См. [DOCKER.md](DOCKER.md): `cp .env.example .env`, заполнить, `docker compose up -d --build`.
+Автодеплой из GitHub Actions после успешного CI — раздел 9 там же.
 
 ## Сборка и тесты без Docker
 ```bash

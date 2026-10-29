@@ -68,3 +68,56 @@ docker compose exec db pg_dump -U dating dating > backup.sql     # резерв�
 | «Подпись initData неверна» | BOT_TOKEN в .env не от того бота, который открывает приложение |
 | Ошибки CORS / 403 на запросах | Приложение открыто по адресу, отличному от DOMAIN |
 | Бот не отвечает на /start | Не выполнен setWebhook (п. 5): `curl https://api.telegram.org/bot$BOT_TOKEN/getWebhookInfo` |
+
+## 9. Автодеплой из GitHub Actions
+Workflow `CI` проверяет каждый PR и пуш в `main`. После успешного CI на `main` workflow `Deploy`
+заходит на сервер по SSH, записывает `.env` из секретов GitHub и перезапускает контейнеры
+(ручной запуск: Actions → Deploy → Run workflow). Пункты 3–4 тогда вручную делать не нужно.
+
+**На сервере** — отдельный пользователь для деплоя (группа `docker` дает права root, поэтому
+ключ этого пользователя храните только в секретах GitHub):
+```bash
+sudo adduser --disabled-password --gecos "" deploy
+sudo usermod -aG docker deploy
+sudo -iu deploy git clone https://github.com/langsot/app-dating.git
+```
+
+**На своем компьютере** — ключ только для деплоя и отпечаток сервера:
+```bash
+ssh-keygen -t ed25519 -f deploy_key -N "" -C github-actions-deploy
+# содержимое deploy_key.pub добавить в /home/deploy/.ssh/authorized_keys на сервере
+ssh-keyscan -H <IP сервера> > known_hosts
+# сверить отпечаток с выводом на сервере: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+**В GitHub** — Settings → Environments → New environment `production`. Рекомендуется
+Deployment branches: только `main`; по желанию Required reviewers — деплой после подтверждения.
+Затем секреты и переменные окружения (значения вводятся скрыто или берутся из файлов):
+```bash
+gh secret set SSH_HOST --env production                      # IP или домен сервера
+gh secret set SSH_USER --env production --body deploy
+gh secret set SSH_PRIVATE_KEY --env production < deploy_key
+gh secret set SSH_KNOWN_HOSTS --env production < known_hosts
+gh secret set BOT_TOKEN --env production                     # токен от @BotFather
+gh secret set JWT_SECRET --env production --body "$(openssl rand -hex 32)"
+gh secret set DB_PASSWORD --env production --body "$(openssl rand -hex 16)"
+gh variable set DOMAIN --env production --body mydating.duckdns.org
+rm deploy_key known_hosts                                    # копии больше не нужны
+```
+
+| Имя | Тип | Назначение |
+|---|---|---|
+| `SSH_HOST`, `SSH_USER` | секрет | куда подключаться |
+| `SSH_PRIVATE_KEY` | секрет | приватный ключ деплоя |
+| `SSH_KNOWN_HOSTS` | секрет | отпечаток сервера: без него подключение отклоняется |
+| `BOT_TOKEN`, `JWT_SECRET`, `DB_PASSWORD` | секрет | попадают в `.env` на сервере (права 600) |
+| `DOMAIN` | переменная | адрес приложения, публичный |
+| `SSH_PORT`, `APP_DIR` | переменная, необязательно | порт SSH (22) и каталог проекта (`app-dating` в домашнем каталоге) |
+
+Важно:
+- Используйте значения из `openssl rand -hex`: символ `$` в `.env` Docker Compose воспринимает как подстановку.
+- `DB_PASSWORD` применяется только при первом создании тома БД. Чтобы сменить пароль позже:
+  `docker compose exec db psql -U dating -c "ALTER USER dating PASSWORD '<новый>'"`, затем обновить секрет.
+- Деплой выкладывает на сервер ровно тот коммит, который прошел CI; не правьте файлы в каталоге проекта на сервере.
+- При утечке: `/revoke` в @BotFather, новый `JWT_SECRET` (пользователи просто войдут заново),
+  удалить строку ключа из `authorized_keys` и выпустить новый ключ.
