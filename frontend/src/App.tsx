@@ -1,0 +1,58 @@
+import { useMemo, useState } from "react";
+import { BackendApiClient } from "./api/BackendApiClient";
+import { TelegramWebAppAdapter } from "./telegram/TelegramWebAppAdapter";
+import type { AuthResponse, MatchDto, ProfileDto, ScreenId } from "./types";
+import { LoginScreen } from "./screens/LoginScreen";
+import { ProfileEditorScreen } from "./screens/ProfileEditorScreen";
+import { FeedScreen } from "./screens/FeedScreen";
+import { MatchListScreen, chatLink } from "./screens/MatchListScreen";
+import { MatchPopup } from "./components/MatchPopup";
+import { TabBar } from "./components/TabBar";
+
+/** Корневой компонент: хранит сессию и переключает экраны. */
+export function App() {
+  const api = useMemo(() => new BackendApiClient(), []);
+  const tg = useMemo(() => new TelegramWebAppAdapter(), []);
+  const [screen, setScreen] = useState<ScreenId>("login");
+  const [profile, setProfile] = useState<ProfileDto | null>(null);
+  const [match, setMatch] = useState<MatchDto | null>(null);
+
+  async function onAuthorized(_r: AuthResponse) {
+    const p = await api.getMyProfile();
+    setProfile(p);
+    setScreen(p && p.complete ? "feed" : "editor");
+  }
+
+  function onSaved(p: ProfileDto) {
+    setProfile(p);
+  }
+
+  const canBrowse = !!profile?.complete;
+  return (
+    <div className="app">
+      <main>
+        {screen === "login" && <LoginScreen api={api} tg={tg} onAuthorized={onAuthorized} />}
+        {screen === "editor" && <ProfileEditorScreen api={api} tg={tg} profile={profile} onSaved={onSaved}
+                                                      onDeleted={() => { setProfile(null); setScreen("deleted"); }} />}
+        {screen === "deleted" && (
+          <div className="center-screen" data-testid="deleted">
+            <div className="logo">♥</div>
+            <h1>Анкета удалена</h1>
+            <p>Вас больше не видно в ленте. Чтобы вернуться, просто откройте приложение снова.</p>
+          </div>
+        )}
+        {screen === "feed" && profile && canBrowse &&
+          <FeedScreen api={api} tg={tg} profile={profile} onProfileChanged={setProfile} onMatch={setMatch} />}
+        {screen === "matches" && <MatchListScreen api={api} tg={tg} />}
+      </main>
+      {screen !== "login" && profile && (
+        <TabBar current={screen} onSelect={(s) => (s === "feed" && !canBrowse ? setScreen("editor") : setScreen(s))} />
+      )}
+      {match && (
+        <MatchPopup match={match} myPhoto={profile?.photos[0]?.url ?? null}
+                    onClose={() => setMatch(null)}
+                    onWrite={() => { const l = chatLink(match); if (l) tg.openTelegramLink(l); setMatch(null); }} />
+      )}
+    </div>
+  );
+}
