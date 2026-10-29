@@ -1,22 +1,22 @@
-# Запуск в Docker на своем компьютере со статическим IP
+# Запуск в Docker на сервере
 
-Состав: `db` (PostgreSQL 17), `app` (приложение, собирается из исходников), `caddy`
-(HTTPS с автоматическим сертификатом Let's Encrypt). Наружу открыты только порты 80 и 443.
+Состав: `db` (PostgreSQL 17), `app` (приложение, собирается из исходников), `tunnel`
+(Cloudflare Tunnel). HTTPS и сертификат обеспечивает Cloudflare; `tunnel` сам устанавливает
+исходящее соединение, поэтому входящие порты для приложения на сервере не открываются.
 
 ## 1. Что нужно заранее
 - Docker и Docker Compose v2 (`docker compose version`). На Windows и macOS — Docker Desktop.
-- Белый статический IP, и порты **80/TCP и 443/TCP** (желательно и 443/UDP) проброшены
-  на роутере к этому компьютеру и разрешены в брандмауэре. Порт 80 нужен Let's Encrypt
-  для выдачи сертификата, 443 — для работы приложения.
+- Домен, DNS которого обслуживает Cloudflare (бесплатный тариф подходит).
 - Бот Telegram: в @BotFather команда `/newbot`, сохраните токен.
+- Для автодеплоя (п. 9) — доступ к серверу по SSH (порт 22).
 
-## 2. Адрес: домен или IP
-Telegram открывает мини-приложения только по HTTPS с настоящим сертификатом.
-- **Домен (надежнее).** Бесплатный поддомен на duckdns.org, указывающий на ваш IP, —
-  `DOMAIN=mydating.duckdns.org`. Без регистрации можно `DOMAIN=203-0-113-10.sslip.io`
-  (подставьте свой IP через дефисы).
-- **Только IP.** `DOMAIN=203.0.113.10`. Let's Encrypt выдает на IP сертификат сроком
-  около 6 суток; Caddy продлевает его сам. Если сертификат не выдается, используйте домен.
+## 2. Туннель Cloudflare
+Telegram открывает мини-приложения только по HTTPS с настоящим сертификатом — его выдает Cloudflare.
+1. Cloudflare Zero Trust → Networks → Tunnels → **Create a tunnel** → тип Cloudflared, имя, например `dating`.
+2. На шаге установки выберите Docker и скопируйте токен из показанной команды (длинная строка после `--token`).
+   Саму команду запускать не нужно — туннель запустит `docker compose`.
+3. Добавьте публичный адрес (Public hostname): поддомен, например `dating`, ваш домен,
+   сервис **HTTP**, URL **`app:8080`**. DNS-запись Cloudflare создаст сам.
 
 ## 3. Настройка
 ```bash
@@ -24,13 +24,14 @@ git clone https://github.com/langsot/app-dating.git && cd app-dating
 cp .env.example .env
 openssl rand -hex 32    # -> JWT_SECRET
 openssl rand -hex 16    # -> DB_PASSWORD
-nano .env               # DOMAIN, BOT_TOKEN, JWT_SECRET, DB_PASSWORD
+nano .env               # DOMAIN, CLOUDFLARE_TUNNEL_TOKEN, BOT_TOKEN, JWT_SECRET, DB_PASSWORD
+chmod 600 .env
 ```
 
 ## 4. Запуск
 ```bash
-docker compose up -d --build      # первая сборка 5–10 минут
-docker compose logs -f caddy app  # ждать «certificate obtained successfully» и «Started DatingApplication»
+docker compose up -d --build       # первая сборка 5–10 минут
+docker compose logs -f tunnel app  # ждать «Registered tunnel connection» и «Started DatingApplication»
 ```
 Проверка в браузере: `https://<DOMAIN>/api/interests` — список интересов в JSON;
 `https://<DOMAIN>/` — надпись «Откройте приложение из бота…» (вне Telegram так и должно быть).
@@ -63,8 +64,10 @@ docker compose exec db pg_dump -U dating dating > backup.sql     # резерв�
 ## 8. Если что-то не работает
 | Признак | Причина и решение |
 |---|---|
-| В журнале caddy ошибка получения сертификата | Порт 80 недоступен снаружи: проверьте проброс на роутере и брандмауэр; откройте `http://<IP>` с телефона через мобильный интернет. Некоторые провайдеры блокируют 80 — используйте домен и DNS-проверку или другой провайдер |
-| Мини-приложение в Telegram пустое или с ошибкой | Сертификат еще не выдан или DOMAIN не совпадает с адресом в BotFather |
+| В журнале tunnel «Provided Tunnel token is not valid» | Неверный `CLOUDFLARE_TUNNEL_TOKEN`: скопируйте токен заново из панели туннеля |
+| Ошибка Cloudflare 1033 | Туннель не запущен: `docker compose ps`, `docker compose logs tunnel` |
+| Ошибка 502 Bad Gateway | В Public hostname указан не тот сервис: должен быть HTTP и `app:8080` (не `localhost`) |
+| Мини-приложение в Telegram пустое или с ошибкой | `DOMAIN` не совпадает с адресом туннеля или с URL в BotFather |
 | «Подпись initData неверна» | BOT_TOKEN в .env не от того бота, который открывает приложение |
 | Ошибки CORS / 403 на запросах | Приложение открыто по адресу, отличному от DOMAIN |
 | Бот не отвечает на /start | Не выполнен setWebhook (п. 5): `curl https://api.telegram.org/bot$BOT_TOKEN/getWebhookInfo` |
@@ -82,6 +85,14 @@ sudo usermod -aG docker deploy
 sudo -iu deploy git clone https://github.com/langsot/app-dating.git
 ```
 
+SSH — единственный открытый порт, закройте вход по паролю и все остальные порты:
+```bash
+# в /etc/ssh/sshd_config: PasswordAuthentication no и PermitRootLogin no
+sudo systemctl restart ssh
+sudo ufw default deny incoming && sudo ufw allow 22/tcp && sudo ufw enable
+```
+Не добавляйте `ports:` сервисам в `docker-compose.yml`: опубликованные Docker-порты обходят ufw.
+
 **На своем компьютере** — ключ только для деплоя и отпечаток сервера:
 ```bash
 ssh-keygen -t ed25519 -f deploy_key -N "" -C github-actions-deploy
@@ -94,14 +105,15 @@ ssh-keyscan -H <IP сервера> > known_hosts
 Deployment branches: только `main`; по желанию Required reviewers — деплой после подтверждения.
 Затем секреты и переменные окружения (значения вводятся скрыто или берутся из файлов):
 ```bash
-gh secret set SSH_HOST --env production                      # IP или домен сервера
+gh secret set SSH_HOST --env production                      # IP сервера
 gh secret set SSH_USER --env production --body deploy
 gh secret set SSH_PRIVATE_KEY --env production < deploy_key
 gh secret set SSH_KNOWN_HOSTS --env production < known_hosts
+gh secret set CLOUDFLARE_TUNNEL_TOKEN --env production       # токен туннеля (п. 2)
 gh secret set BOT_TOKEN --env production                     # токен от @BotFather
 gh secret set JWT_SECRET --env production --body "$(openssl rand -hex 32)"
 gh secret set DB_PASSWORD --env production --body "$(openssl rand -hex 16)"
-gh variable set DOMAIN --env production --body mydating.duckdns.org
+gh variable set DOMAIN --env production --body dating.example.com
 rm deploy_key known_hosts                                    # копии больше не нужны
 ```
 
@@ -110,7 +122,7 @@ rm deploy_key known_hosts                                    # копии бол
 | `SSH_HOST`, `SSH_USER` | секрет | куда подключаться |
 | `SSH_PRIVATE_KEY` | секрет | приватный ключ деплоя |
 | `SSH_KNOWN_HOSTS` | секрет | отпечаток сервера: без него подключение отклоняется |
-| `BOT_TOKEN`, `JWT_SECRET`, `DB_PASSWORD` | секрет | попадают в `.env` на сервере (права 600) |
+| `CLOUDFLARE_TUNNEL_TOKEN`, `BOT_TOKEN`, `JWT_SECRET`, `DB_PASSWORD` | секрет | попадают в `.env` на сервере (права 600) |
 | `DOMAIN` | переменная | адрес приложения, публичный |
 | `SSH_PORT`, `APP_DIR` | переменная, необязательно | порт SSH (22) и каталог проекта (`app-dating` в домашнем каталоге) |
 
@@ -120,4 +132,4 @@ rm deploy_key known_hosts                                    # копии бол
   `docker compose exec db psql -U dating -c "ALTER USER dating PASSWORD '<новый>'"`, затем обновить секрет.
 - Деплой выкладывает на сервер ровно тот коммит, который прошел CI; не правьте файлы в каталоге проекта на сервере.
 - При утечке: `/revoke` в @BotFather, новый `JWT_SECRET` (пользователи просто войдут заново),
-  удалить строку ключа из `authorized_keys` и выпустить новый ключ.
+  удалить строку ключа из `authorized_keys` и выпустить новый ключ; токен туннеля — Refresh token в панели туннеля.
