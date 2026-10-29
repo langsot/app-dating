@@ -1,0 +1,17 @@
+{
+  "name": "dating-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Вспомогательные сценарии: подпись initData, демо-данные, нагрузочный и системный тесты",
+  "scripts": {
+    "initdata": "node tg_initdata.mjs",
+    "seed": "node seed.mjs",
+    "load": "node load.mjs",
+    "e2e": "node e2e.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "playwright": "^1.49.0"
+  }
+}

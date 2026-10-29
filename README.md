@@ -7,8 +7,8 @@
 - `backend/` — серверная часть (Maven): `web` (REST-контроллеры), `service` (бизнес-логика),
   `repository` (Spring Data JPA), `domain` (сущности), миграции Flyway в `src/main/resources/db/migration`.
 - `frontend/` — клиент мини-приложения; сборка копируется в `backend/src/main/resources/static`.
-- `tools/` — вспомогательные сценарии: `tg_initdata.py` (подпись initData как в Telegram),
-  `seed.py` (демо-данные), `load.py` (нагрузочный тест), `e2e.mjs` (системный тест в браузере, Playwright).
+- `tools/` — вспомогательные сценарии на Node.js: `tg_initdata.mjs` (подпись initData как в Telegram),
+  `seed.mjs` (демо-данные), `load.mjs` (нагрузочный тест), `e2e.mjs` (системный тест в браузере, Playwright).
 
 ## Сборка и тесты
 ```bash
@@ -32,3 +32,16 @@ java -jar backend/target/dating-app-1.0.0.jar
 curl "https://api.telegram.org/bot$BOT_TOKEN/setWebhook?url=$WEB_APP_URL/api/telegram/webhook"
 ```
 Telegram открывает мини-приложения только по HTTPS — используйте Nginx с сертификатом.
+
+## Вспомогательные сценарии
+Сценарии рассчитаны на бэкенд, запущенный с демо-токеном `BOT_TOKEN=123456789:DEMO-token-for-local-run`.
+```bash
+cd tools && npm install
+npx playwright install chromium    # браузер для e2e
+npm run initdata -- 42 Иван        # подписанная строка initData для ручных запросов
+npm run seed                       # демо-анкеты, лайки и мэтч
+npm run e2e                        # системный тест, скриншоты в tools/build/shots (после seed)
+N=2000 C=20 R=30 npm run load      # нагрузочный тест (очищает БД!)
+```
+Адреса переопределяются переменными `BASE` (по умолчанию `http://localhost:8080`)
+и `DATABASE_URL` (по умолчанию `postgres://dating:dating@localhost:5432/dating`).
