@@ -1,6 +1,6 @@
 package ru.langsot.dating.service;
 
-import org.springframework.core.io.PathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import ru.langsot.dating.config.AppProperties;
@@ -57,7 +57,7 @@ public class PhotoStorageService {
         if (!Files.exists(file)) {
             throw new NotFoundException("Файл не найден");
         }
-        return new PathResource(file);
+        return new FileSystemResource(file);
     }
 
     public void delete(String key) {

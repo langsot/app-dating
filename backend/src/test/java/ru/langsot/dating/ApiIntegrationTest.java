@@ -1,13 +1,11 @@
 package ru.langsot.dating;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
@@ -17,6 +15,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import ru.langsot.dating.domain.LikeType;
 import ru.langsot.dating.service.MatchingService;
 import ru.langsot.dating.service.TelegramBotClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -48,7 +48,7 @@ class ApiIntegrationTest {
     @Autowired
     JdbcTemplate jdbc;
     @Autowired
-    ObjectMapper json;
+    JsonMapper json;
     @Autowired
     MatchingService matchingService;
     @MockitoBean
@@ -70,7 +70,7 @@ class ApiIntegrationTest {
                         .content(json.writeValueAsString(java.util.Map.of("initData", TestData.initData(tgId, name)))))
                 .andExpect(status().isOk()).andReturn();
         JsonNode n = json.readTree(r.getResponse().getContentAsString());
-        return new Session(n.get("token").asText(), n.get("userId").asLong(), tgId);
+        return new Session(n.get("token").asString(), n.get("userId").asLong(), tgId);
     }
 
     String profileJson(String name, int age, String gender, String pref, int min, int max, String... interests)
@@ -194,7 +194,7 @@ class ApiIntegrationTest {
     void photos() throws Exception {
         Session s = login(700, "Мария");
         saveProfile(s, profileJson("Мария", 24, "FEMALE", "MALE", 18, 40));
-        String url = uploadPhoto(s).get("url").asText();
+        String url = uploadPhoto(s).get("url").asString();
         mvc.perform(get(url)).andExpect(status().isOk()).andExpect(content().contentType(MediaType.IMAGE_PNG));
         for (int i = 0; i < 5; i++) {
             uploadPhoto(s);
@@ -252,8 +252,8 @@ class ApiIntegrationTest {
         assertThat(rate(a, b.userId(), "LIKE").get("matched").asBoolean()).isFalse();
         JsonNode res = rate(b, a.userId(), "LIKE");
         assertThat(res.get("matched").asBoolean()).isTrue();
-        assertThat(res.at("/match/partnerName").asText()).isEqualTo("Иван");
-        assertThat(matches(a).get(0).get("partnerName").asText()).isEqualTo("Анна");
+        assertThat(res.at("/match/partnerName").asString()).isEqualTo("Иван");
+        assertThat(matches(a).get(0).get("partnerName").asString()).isEqualTo("Анна");
         assertThat(matches(b)).hasSize(1);
         verify(bot, timeout(3000)).sendMessage(eq(11L), contains("мэтч"), anyString());
         verify(bot, timeout(3000)).sendMessage(eq(12L), contains("мэтч"), anyString());

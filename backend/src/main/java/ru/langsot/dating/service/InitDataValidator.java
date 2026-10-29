@@ -1,11 +1,11 @@
 package ru.langsot.dating.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.langsot.dating.config.AppProperties;
 import ru.langsot.dating.exception.UnauthorizedException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -33,14 +33,14 @@ public class InitDataValidator {
     private final byte[] secretKey;
     private final Duration maxAge;
     private final Clock clock;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     @Autowired
-    public InitDataValidator(AppProperties props, Clock clock, ObjectMapper objectMapper) {
-        this(props.telegram().botToken(), props.telegram().initDataMaxAge(), clock, objectMapper);
+    public InitDataValidator(AppProperties props, Clock clock, JsonMapper jsonMapper) {
+        this(props.telegram().botToken(), props.telegram().initDataMaxAge(), clock, jsonMapper);
     }
 
-    public InitDataValidator(String botToken, Duration maxAge, Clock clock, ObjectMapper objectMapper) {
+    public InitDataValidator(String botToken, Duration maxAge, Clock clock, JsonMapper jsonMapper) {
         if (botToken == null || botToken.isBlank()) {
             this.secretKey = null;
         } else {
@@ -48,7 +48,7 @@ public class InitDataValidator {
         }
         this.maxAge = maxAge;
         this.clock = clock;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     public TelegramInitData validate(String rawInitData) {
@@ -117,7 +117,7 @@ public class InitDataValidator {
             throw new UnauthorizedException("В initData отсутствуют данные пользователя");
         }
         try {
-            JsonNode node = objectMapper.readTree(json);
+            JsonNode node = jsonMapper.readTree(json);
             return new TelegramUser(node.get("id").asLong(), text(node, "username"),
                     text(node, "first_name"), text(node, "last_name"), text(node, "language_code"));
         } catch (Exception e) {
@@ -127,7 +127,7 @@ public class InitDataValidator {
 
     private static String text(JsonNode node, String field) {
         JsonNode v = node.get(field);
-        return v == null || v.isNull() ? null : v.asText();
+        return v == null || v.isNull() ? null : v.asString();
     }
 
     private static byte[] hmac(byte[] key, byte[] data) {

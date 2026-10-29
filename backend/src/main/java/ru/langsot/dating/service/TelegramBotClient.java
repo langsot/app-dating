@@ -1,10 +1,10 @@
 package ru.langsot.dating.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import ru.langsot.dating.config.AppProperties;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -21,12 +21,12 @@ public class TelegramBotClient {
     private static final Logger log = LoggerFactory.getLogger(TelegramBotClient.class);
 
     private final AppProperties.Telegram cfg;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
-    public TelegramBotClient(AppProperties props, ObjectMapper objectMapper) {
+    public TelegramBotClient(AppProperties props, JsonMapper jsonMapper) {
         this.cfg = props.telegram();
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     public boolean isEnabled() {
@@ -48,7 +48,7 @@ public class TelegramBotClient {
             HttpRequest req = HttpRequest.newBuilder(URI.create(cfg.apiBaseUrl() + "/bot" + cfg.botToken() + "/sendMessage"))
                     .timeout(Duration.ofSeconds(10))
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonMapper.writeValueAsString(body)))
                     .build();
             HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() != 200) {
