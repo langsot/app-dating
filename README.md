@@ -1,6 +1,6 @@
 # Веб-приложение для знакомств с интеграцией Telegram Mini Apps
 
-Учебный проект (УПД-4). Серверная часть — Java 25 + Spring Boot 3 + PostgreSQL,
+Учебный проект (УПД-4). Серверная часть — Java 25 + Spring Boot 4 + PostgreSQL,
 клиент — TypeScript + React, работает как Telegram Mini App.
 
 ## Структура
