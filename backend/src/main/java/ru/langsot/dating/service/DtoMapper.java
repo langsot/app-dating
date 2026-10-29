@@ -5,6 +5,7 @@ import ru.langsot.dating.dto.Dtos.*;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,6 +22,19 @@ public final class DtoMapper {
                 p.getBio(), p.getCity(), pref.getPreferredGender(), pref.getMinAge(), pref.getMaxAge(),
                 p.getPhotos().stream().map(ph -> new PhotoDto(ph.getId(), ph.getUrl(), ph.getPosition())).toList(),
                 interestNames(p), p.getUser().getStatus() == UserStatus.HIDDEN, p.isComplete());
+    }
+
+    public static FeedCardDto toCard(Profile p, boolean superLikedYou) {
+        return new FeedCardDto(p.getUser().getId(), p.getDisplayName(), p.getAge(), p.getCity(), p.getBio(),
+                p.getPhotos().stream().map(Photo::getUrl).toList(), interestNames(p), superLikedYou);
+    }
+
+    public static MatchDto toDto(Match m, Long viewerId, Optional<Profile> partnerProfile) {
+        User partner = m.partnerOf(viewerId);
+        String name = partnerProfile.map(Profile::getDisplayName).orElse(partner.getFirstName());
+        Integer age = partnerProfile.map(Profile::getAge).orElse(null);
+        String photo = partnerProfile.flatMap(p -> p.getPhotos().stream().findFirst()).map(Photo::getUrl).orElse(null);
+        return new MatchDto(m.getId(), partner.getId(), name, age, photo, partner.getUsername(), m.getMatchedAt());
     }
 
     private static Set<String> interestNames(Profile p) {

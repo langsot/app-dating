@@ -3,8 +3,10 @@ package ru.langsot.dating.dto;
 import jakarta.validation.constraints.*;
 import ru.langsot.dating.domain.Gender;
 import ru.langsot.dating.domain.GenderPreference;
+import ru.langsot.dating.domain.LikeType;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -53,6 +55,23 @@ public final class Dtos {
     }
 
     public record VisibilityRequest(boolean hidden) {
+    }
+
+    public record FeedCardDto(Long userId, String displayName, int age, String city, String bio,
+                              List<String> photoUrls, Set<String> interests, boolean superLikedYou) {
+    }
+
+    public record RateRequest(@NotNull LikeType type) {
+    }
+
+    public record RateResult(boolean matched, Long matchId, MatchDto match) {
+        public static RateResult noMatch() {
+            return new RateResult(false, null, null);
+        }
+    }
+
+    public record MatchDto(Long id, Long partnerId, String partnerName, Integer partnerAge,
+                           String partnerPhotoUrl, String partnerUsername, LocalDateTime matchedAt) {
     }
 
     public record InterestDto(String name, String category) {
