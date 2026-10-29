@@ -1,0 +1,73 @@
+# Запуск: docker compose up -d --build   (параметры — в файле .env, образец .env.example)
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dating
+      POSTGRES_USER: dating
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro   # создает базу dating_test для тестов
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dating -d dating"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/dating
+      DB_USER: dating
+      DB_PASSWORD: ${DB_PASSWORD}
+      BOT_TOKEN: ${BOT_TOKEN:?задайте BOT_TOKEN в .env}
+      JWT_SECRET: ${JWT_SECRET:?задайте JWT_SECRET в .env (не менее 32 символов)}
+      WEB_APP_URL: https://${DOMAIN:?задайте DOMAIN в .env}
+    volumes:
+      - photos:/data/photos
+    # наружу порт не публикуется: доступ только через Caddy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Тесты сервера (45 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
+  tests:
+    image: maven:3.9-eclipse-temurin-25
+    profiles: ["tests"]
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /src
+    volumes:
+      - ./backend:/src
+      - maven-cache:/root/.m2
+    environment:
+      TEST_DB_URL: jdbc:postgresql://db:5432/dating_test
+      TEST_DB_PASSWORD: ${DB_PASSWORD}
+    command: ["mvn", "-B", "test"]
+
+volumes:
+  maven-cache:
+  db-data:
+  photos:
+  caddy-data:
+  caddy-config:
