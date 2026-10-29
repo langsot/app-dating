@@ -1,10 +1,10 @@
 package ru.langsot.dating.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.langsot.dating.TestData;
 import ru.langsot.dating.exception.UnauthorizedException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -19,7 +19,7 @@ class InitDataValidatorTest {
 
     private static final Instant NOW = Instant.parse("2026-10-27T10:00:00Z");
     private final InitDataValidator validator = new InitDataValidator(TestData.BOT_TOKEN, Duration.ofHours(24),
-            Clock.fixed(NOW, ZoneOffset.UTC), new ObjectMapper());
+            Clock.fixed(NOW, ZoneOffset.UTC), new JsonMapper());
 
     @Test
     @DisplayName("Т-01 корректная подпись: данные пользователя извлечены")

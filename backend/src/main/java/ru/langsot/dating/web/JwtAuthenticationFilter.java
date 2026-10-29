@@ -1,6 +1,5 @@
 package ru.langsot.dating.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import ru.langsot.dating.dto.Dtos.ErrorDto;
 import ru.langsot.dating.exception.UnauthorizedException;
 import ru.langsot.dating.service.JwtTokenProvider;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,11 +26,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             List.of("/api/auth/", "/api/telegram/webhook", "/api/photos/", "/api/interests");
 
     private final JwtTokenProvider tokens;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokens, ObjectMapper objectMapper) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokens, JsonMapper jsonMapper) {
         this.tokens = tokens;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -54,7 +54,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            objectMapper.writeValue(response.getOutputStream(), new ErrorDto(401, "Unauthorized", e.getMessage(), List.of()));
+            jsonMapper.writeValue(response.getOutputStream(), new ErrorDto(401, "Unauthorized", e.getMessage(), List.of()));
             return;
         }
         chain.doFilter(request, response);

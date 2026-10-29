@@ -1,9 +1,9 @@
 package ru.langsot.dating.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.langsot.dating.exception.UnauthorizedException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -20,7 +20,7 @@ class JwtTokenProviderTest {
     private static final Instant NOW = Instant.parse("2026-10-27T10:00:00Z");
 
     private JwtTokenProvider at(Instant t) {
-        return new JwtTokenProvider(SECRET, Duration.ofHours(12), Clock.fixed(t, ZoneOffset.UTC), new ObjectMapper());
+        return new JwtTokenProvider(SECRET, Duration.ofHours(12), Clock.fixed(t, ZoneOffset.UTC), new JsonMapper());
     }
 
     @Test
@@ -53,7 +53,7 @@ class JwtTokenProviderTest {
     @Test
     @DisplayName("короткий секрет запрещен конфигурацией")
     void shortSecret() {
-        assertThatThrownBy(() -> new JwtTokenProvider("short", Duration.ofHours(1), Clock.systemUTC(), new ObjectMapper()))
+        assertThatThrownBy(() -> new JwtTokenProvider("short", Duration.ofHours(1), Clock.systemUTC(), new JsonMapper()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

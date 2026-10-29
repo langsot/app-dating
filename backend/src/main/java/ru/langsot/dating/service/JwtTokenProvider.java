@@ -1,11 +1,11 @@
 package ru.langsot.dating.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import ru.langsot.dating.config.AppProperties;
 import ru.langsot.dating.exception.UnauthorizedException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -24,21 +24,21 @@ public class JwtTokenProvider {
     private final byte[] secret;
     private final Duration ttl;
     private final Clock clock;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     @Autowired
-    public JwtTokenProvider(AppProperties props, Clock clock, ObjectMapper objectMapper) {
-        this(props.jwt().secret(), props.jwt().ttl(), clock, objectMapper);
+    public JwtTokenProvider(AppProperties props, Clock clock, JsonMapper jsonMapper) {
+        this(props.jwt().secret(), props.jwt().ttl(), clock, jsonMapper);
     }
 
-    public JwtTokenProvider(String secret, Duration ttl, Clock clock, ObjectMapper objectMapper) {
+    public JwtTokenProvider(String secret, Duration ttl, Clock clock, JsonMapper jsonMapper) {
         if (secret == null || secret.length() < 32) {
             throw new IllegalArgumentException("Секрет JWT должен содержать не менее 32 символов");
         }
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
         this.ttl = ttl;
         this.clock = clock;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     public String createToken(Long userId) {
@@ -69,11 +69,11 @@ public class JwtTokenProvider {
             throw new UnauthorizedException("Подпись токена неверна");
         }
         try {
-            JsonNode payload = objectMapper.readTree(Base64.getUrlDecoder().decode(parts[1]));
+            JsonNode payload = jsonMapper.readTree(Base64.getUrlDecoder().decode(parts[1]));
             if (payload.get("exp").asLong() < clock.instant().getEpochSecond()) {
                 throw new UnauthorizedException("Срок действия токена истек");
             }
-            return Long.parseLong(payload.get("sub").asText());
+            return Long.parseLong(payload.get("sub").asString());
         } catch (UnauthorizedException e) {
             throw e;
         } catch (Exception e) {
