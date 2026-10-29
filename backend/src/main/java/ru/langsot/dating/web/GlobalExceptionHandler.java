@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorDto> tooLarge(MaxUploadSizeExceededException e) {
-        return build(HttpStatus.PAYLOAD_TOO_LARGE, "Размер файла должен быть не более 5 МБ", List.of());
+        return build(HttpStatus.CONTENT_TOO_LARGE, "Размер файла должен быть не более 5 МБ", List.of());
     }
 
     @ExceptionHandler(Exception.class)
