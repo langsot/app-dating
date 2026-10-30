@@ -14,6 +14,12 @@ spring:
       hibernate.default_batch_fetch_size: 50
   flyway:
     enabled: true
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # Имена файлов клиента постоянные: после деплоя новая версия должна приходить сразу
+          no-cache: true
   servlet:
     multipart:
       max-file-size: 5MB
