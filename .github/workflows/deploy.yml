@@ -74,15 +74,25 @@ jobs:
 
       - name: Проверка доступности
         run: |
+          # Ответа домена мало: его может отдавать не этот сервер, поэтому проверяется и туннель
           foreach ($attempt in 1..30) {
-            try {
-              Invoke-WebRequest -UseBasicParsing -Uri "https://$env:DOMAIN/api/interests" | Out-Null
-              Write-Output "Приложение отвечает: https://$env:DOMAIN"
-              exit 0
-            } catch {
-              Start-Sleep -Seconds 10
+            $state = docker inspect -f '{{.State.Status}}' app-dating-tunnel-1
+            $route = cmd /c "docker logs app-dating-tunnel-1 2>&1" |
+              Select-String -SimpleMatch 'Updated to new configuration' |
+              Select-String -SimpleMatch $env:DOMAIN
+            if ($state -eq 'running' -and $route) {
+              try {
+                Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 -Uri "https://$env:DOMAIN/api/interests" | Out-Null
+                Write-Output "Приложение отвечает: https://$env:DOMAIN"
+                exit 0
+              } catch {
+                Write-Output "Попытка ${attempt}: $($_.Exception.Message)"
+              }
             }
+            Start-Sleep -Seconds 10
           }
-          Write-Output "::error::https://$env:DOMAIN не отвечает после деплоя"
-          docker logs --tail 50 app-dating-app-1
+          Write-Output "::error::https://$env:DOMAIN не отвечает через туннель после деплоя"
+          docker ps -a --filter name=app-dating
+          cmd /c "docker logs --tail 20 app-dating-tunnel-1 2>&1"
+          cmd /c "docker logs --tail 50 app-dating-app-1 2>&1"
           exit 1

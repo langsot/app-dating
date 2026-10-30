@@ -32,7 +32,7 @@ app:
     init-data-max-age: 24h
     api-base-url: https://api.telegram.org
   jwt:
-    secret: ${JWT_SECRET:change-me-please-change-me-please-32b}
+    secret: ${JWT_SECRET}
     ttl: 12h
   storage:
     dir: ${STORAGE_DIR:./data/photos}

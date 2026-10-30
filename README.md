@@ -38,7 +38,8 @@ curl "https://api.telegram.org/bot$BOT_TOKEN/setWebhook?url=$WEB_APP_URL/api/tel
 Telegram открывает мини-приложения только по HTTPS — используйте Nginx с сертификатом.
 
 ## Вспомогательные сценарии
-Сценарии рассчитаны на бэкенд, запущенный с демо-токеном `BOT_TOKEN=123456789:DEMO-token-for-local-run`.
+Сценарии рассчитаны на бэкенд, запущенный с демо-токеном `BOT_TOKEN=123456789:DEMO-token-for-local-run`
+и любым `JWT_SECRET` не короче 32 символов.
 ```bash
 cd tools && npm install
 npx playwright install chromium    # браузер для e2e

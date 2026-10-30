@@ -16,7 +16,8 @@ Telegram открывает мини-приложения только по HTTP
 2. На шаге установки выберите Docker и скопируйте токен из показанной команды (длинная строка после `--token`).
    Саму команду запускать не нужно — туннель запустит `docker compose`.
 3. Добавьте публичный адрес (Public hostname): поддомен, например `dating`, ваш домен,
-   сервис **HTTP**, URL **`app:8080`**. DNS-запись Cloudflare создаст сам.
+   URL сервиса **`http://app:8080`**. DNS-запись Cloudflare создаст сам; старую A- или AAAA-запись
+   с тем же именем сначала удалите.
 
 ## 3. Настройка
 ```bash
@@ -66,7 +67,9 @@ docker compose exec db pg_dump -U dating dating > backup.sql     # резерв�
 |---|---|
 | В журнале tunnel «Provided Tunnel token is not valid» | Неверный `CLOUDFLARE_TUNNEL_TOKEN`: скопируйте токен заново из панели туннеля |
 | Ошибка Cloudflare 1033 | Туннель не запущен: `docker compose ps`, `docker compose logs tunnel` |
-| Ошибка 502 Bad Gateway | В Public hostname указан не тот сервис: должен быть HTTP и `app:8080` (не `localhost`) |
+| Ошибка 502 Bad Gateway | В Public hostname указан не тот сервис: должен быть `http://app:8080` (не `localhost`) |
+| Ошибка 522 | Домен ведет на IP, а не в туннель: удалите старую A-запись и добавьте Public hostname (п. 2) |
+| Приложение не запускается: «Секрет JWT должен содержать не менее 32 символов» | `JWT_SECRET` не задан или слишком короткий |
 | Мини-приложение в Telegram пустое или с ошибкой | `DOMAIN` не совпадает с адресом туннеля или с URL в BotFather |
 | «Подпись initData неверна» | BOT_TOKEN в .env не от того бота, который открывает приложение |
 | Ошибки CORS / 403 на запросах | Приложение открыто по адресу, отличному от DOMAIN |
@@ -93,7 +96,8 @@ Actions → General → Fork pull request workflows: **Require approval for all 
 Не подтверждайте запуск workflow в чужих PR: такой PR может изменить workflow и выполнить код на раннере.
 
 **На сервере** — Settings → Actions → Runners → New self-hosted runner → Windows x64. Выполните
-показанные команды в PowerShell, раннер разместите в `C:\actions-runner`. При настройке (`config.cmd`)
+показанные команды в PowerShell, раннер разместите, например, в `C:\actions-runner` (этот же путь
+укажите в команде автозапуска ниже). При настройке (`config.cmd`)
 добавьте метку `app-dating`, на вопрос о запуске как службы ответьте `N`: Docker Desktop работает
 в сеансе пользователя. Автозапуск при входе в Windows (PowerShell от администратора):
 ```powershell
