@@ -31,7 +31,8 @@ jobs:
       url: https://${{ vars.DOMAIN }}
     defaults:
       run:
-        shell: powershell
+        # Обычный запуск скриптов на Windows может быть запрещен политикой ExecutionPolicy
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
     env:
       COMPOSE_PROJECT_NAME: app-dating
       DOMAIN: ${{ vars.DOMAIN }}
