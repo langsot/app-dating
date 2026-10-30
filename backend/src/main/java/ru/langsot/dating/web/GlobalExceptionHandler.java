@@ -8,6 +8,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
@@ -56,6 +57,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorDto> tooLarge(MaxUploadSizeExceededException e) {
         return build(HttpStatus.CONTENT_TOO_LARGE, "Размер файла должен быть не более 5 МБ", List.of());
+    }
+
+    /** Клиент закрыл соединение во время передачи ответа: отвечать уже некому, и это не ошибка сервера. */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void clientDisconnected(AsyncRequestNotUsableException e) {
+        log.debug("Клиент закрыл соединение: {}", e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
