@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/dating_test}",
         "spring.datasource.username=dating", "spring.datasource.password=${TEST_DB_PASSWORD:dating}",
         "app.telegram.bot-token=" + TestData.BOT_TOKEN,
+        "app.jwt.secret=test-secret-test-secret-test-secret-32b",
         "app.storage.dir=${java.io.tmpdir}/dating-test-photos",
         "logging.level.root=WARN"})
 @AutoConfigureMockMvc
