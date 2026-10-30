@@ -8,7 +8,7 @@
 - Docker и Docker Compose v2 (`docker compose version`). На Windows и macOS — Docker Desktop.
 - Домен, DNS которого обслуживает Cloudflare (бесплатный тариф подходит).
 - Бот Telegram: в @BotFather команда `/newbot`, сохраните токен.
-- Для автодеплоя (п. 9) — доступ к серверу по SSH (порт 22).
+- Для автодеплоя (п. 9) — GitHub self-hosted runner на сервере; входящие порты не нужны.
 
 ## 2. Туннель Cloudflare
 Telegram открывает мини-приложения только по HTTPS с настоящим сертификатом — его выдает Cloudflare.
@@ -74,62 +74,42 @@ docker compose exec db pg_dump -U dating dating > backup.sql     # резерв�
 
 ## 9. Автодеплой из GitHub Actions
 Workflow `CI` проверяет каждый PR и пуш в `main`. После успешного CI на `main` workflow `Deploy`
-заходит на сервер по SSH, записывает `.env` из секретов GitHub и перезапускает контейнеры
-(ручной запуск: Actions → Deploy → Run workflow). Пункты 3–4 тогда вручную делать не нужно.
-
-**На сервере** — отдельный пользователь для деплоя (группа `docker` дает права root, поэтому
-ключ этого пользователя храните только в секретах GitHub):
-```bash
-sudo adduser --disabled-password --gecos "" deploy
-sudo usermod -aG docker deploy
-sudo -iu deploy git clone https://github.com/langsot/app-dating.git
-```
-
-SSH — единственный открытый порт, закройте вход по паролю и все остальные порты:
-```bash
-# в /etc/ssh/sshd_config: PasswordAuthentication no и PermitRootLogin no
-sudo systemctl restart ssh
-sudo ufw default deny incoming && sudo ufw allow 22/tcp && sudo ufw enable
-```
-Не добавляйте `ports:` сервисам в `docker-compose.yml`: опубликованные Docker-порты обходят ufw.
-
-**На своем компьютере** — ключ только для деплоя и отпечаток сервера:
-```bash
-ssh-keygen -t ed25519 -f deploy_key -N "" -C github-actions-deploy
-# содержимое deploy_key.pub добавить в /home/deploy/.ssh/authorized_keys на сервере
-ssh-keyscan -H <IP сервера> > known_hosts
-# сверить отпечаток с выводом на сервере: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
-```
+запускается на сервере через self-hosted runner и перезапускает контейнеры (ручной запуск:
+Actions → Deploy → Run workflow). Секреты хранятся только в GitHub: файл `.env` не создается,
+пункты 3–4 вручную делать не нужно. Workflow рассчитан на сервер с Windows и Docker Desktop.
 
 **В GitHub** — Settings → Environments → New environment `production`. Рекомендуется
-Deployment branches: только `main`; по желанию Required reviewers — деплой после подтверждения.
-Затем секреты и переменные окружения (значения вводятся скрыто или берутся из файлов):
+Deployment branches: только `main`. Затем секреты и переменные окружения:
 ```bash
-gh secret set SSH_HOST --env production                      # IP сервера
-gh secret set SSH_USER --env production --body deploy
-gh secret set SSH_PRIVATE_KEY --env production < deploy_key
-gh secret set SSH_KNOWN_HOSTS --env production < known_hosts
 gh secret set CLOUDFLARE_TUNNEL_TOKEN --env production       # токен туннеля (п. 2)
 gh secret set BOT_TOKEN --env production                     # токен от @BotFather
 gh secret set JWT_SECRET --env production --body "$(openssl rand -hex 32)"
 gh secret set DB_PASSWORD --env production --body "$(openssl rand -hex 16)"
 gh variable set DOMAIN --env production --body dating.example.com
-rm deploy_key known_hosts                                    # копии больше не нужны
 ```
+
+**Защита раннера.** Репозиторий публичный, а раннер выполняет код на вашем компьютере. Settings →
+Actions → General → Fork pull request workflows: **Require approval for all external contributors**.
+Не подтверждайте запуск workflow в чужих PR: такой PR может изменить workflow и выполнить код на раннере.
+
+**На сервере** — Settings → Actions → Runners → New self-hosted runner → Windows x64. Выполните
+показанные команды в PowerShell, раннер разместите в `C:\actions-runner`. При настройке (`config.cmd`)
+добавьте метку `app-dating`, на вопрос о запуске как службы ответьте `N`: Docker Desktop работает
+в сеансе пользователя. Автозапуск при входе в Windows (PowerShell от администратора):
+```powershell
+schtasks /Create /TN github-runner /SC ONLOGON /TR "C:\actions-runner\run.cmd"
+```
+В Docker Desktop включите Settings → General → Start Docker Desktop when you sign in.
+Отключите сон при работе от сети: без него раннер и приложение недоступны.
 
 | Имя | Тип | Назначение |
 |---|---|---|
-| `SSH_HOST`, `SSH_USER` | секрет | куда подключаться |
-| `SSH_PRIVATE_KEY` | секрет | приватный ключ деплоя |
-| `SSH_KNOWN_HOSTS` | секрет | отпечаток сервера: без него подключение отклоняется |
-| `CLOUDFLARE_TUNNEL_TOKEN`, `BOT_TOKEN`, `JWT_SECRET`, `DB_PASSWORD` | секрет | попадают в `.env` на сервере (права 600) |
+| `CLOUDFLARE_TUNNEL_TOKEN`, `BOT_TOKEN`, `JWT_SECRET`, `DB_PASSWORD` | секрет | передаются контейнерам при деплое |
 | `DOMAIN` | переменная | адрес приложения, публичный |
-| `SSH_PORT`, `APP_DIR` | переменная, необязательно | порт SSH (22) и каталог проекта (`app-dating` в домашнем каталоге) |
 
 Важно:
-- Используйте значения из `openssl rand -hex`: символ `$` в `.env` Docker Compose воспринимает как подстановку.
 - `DB_PASSWORD` применяется только при первом создании тома БД. Чтобы сменить пароль позже:
-  `docker compose exec db psql -U dating -c "ALTER USER dating PASSWORD '<новый>'"`, затем обновить секрет.
-- Деплой выкладывает на сервер ровно тот коммит, который прошел CI; не правьте файлы в каталоге проекта на сервере.
+  `docker exec app-dating-db-1 psql -U dating -c "ALTER USER dating PASSWORD '<новый>'"`, затем обновить секрет.
+- Деплой выкладывает ровно тот коммит, который прошел CI. Журнал приложения: `docker logs -f app-dating-app-1`.
 - При утечке: `/revoke` в @BotFather, новый `JWT_SECRET` (пользователи просто войдут заново),
-  удалить строку ключа из `authorized_keys` и выпустить новый ключ; токен туннеля — Refresh token в панели туннеля.
+  токен туннеля — Refresh token в панели туннеля; раннер — удалить в Settings → Actions → Runners.
