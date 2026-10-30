@@ -1,0 +1,60 @@
+# Локальная отладка без Telegram и Cloudflare: отдельный проект, своя база и демо-токен бота.
+# Запуск: docker compose -f docker-compose.debug.yml up -d --build
+# Демо-данные: docker compose -f docker-compose.debug.yml run --rm seed
+# Адрес: http://localhost:8080/?user=1001&name=Евгений (порт открыт только на этом компьютере)
+name: app-dating-debug
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: dating
+      POSTGRES_USER: dating
+      POSTGRES_PASSWORD: dating
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dating -d dating"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/dating
+      DB_USER: dating
+      DB_PASSWORD: dating
+      BOT_TOKEN: 123456789:DEMO-token-for-local-run
+      JWT_SECRET: local-debug-secret-not-for-production-use
+      WEB_APP_URL: http://localhost:8080
+    volumes:
+      - photos:/data/photos
+
+  proxy:
+    image: node:22-alpine
+    depends_on:
+      - app
+    command: ["node", "/tools/debug_proxy.mjs"]
+    volumes:
+      - ./tools:/tools:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  seed:
+    image: node:22-alpine
+    profiles: ["seed"]
+    depends_on:
+      - app
+    command: ["node", "/tools/seed.mjs"]
+    environment:
+      BASE: http://app:8080
+    volumes:
+      - ./tools:/tools:ro
+
+volumes:
+  db-data:
+  photos:
