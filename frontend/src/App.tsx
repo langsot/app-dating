@@ -43,10 +43,18 @@ export function App() {
         )}
         {screen === "feed" && profile && canBrowse &&
           <FeedScreen api={api} tg={tg} profile={profile} onProfileChanged={setProfile} onMatch={setMatch} />}
+        {screen === "feed" && profile && !canBrowse && (
+          <div className="center-screen" data-testid="feed-locked">
+            <div className="logo">♥</div>
+            <h1>Добавьте фотографию</h1>
+            <p>Лента откроется, когда в анкете будет хотя бы одно фото.</p>
+            <button className="btn wide" onClick={() => setScreen("editor")} data-testid="feed-add-photo">Перейти к анкете</button>
+          </div>
+        )}
         {screen === "matches" && <MatchListScreen api={api} tg={tg} />}
       </main>
       {screen !== "login" && profile && (
-        <TabBar current={screen} onSelect={(s) => (s === "feed" && !canBrowse ? setScreen("editor") : setScreen(s))} />
+        <TabBar current={screen} onSelect={setScreen} />
       )}
       {match && (
         <MatchPopup match={match} myPhoto={profile?.photos[0]?.url ?? null}
