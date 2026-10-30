@@ -3,34 +3,13 @@ import { chromium } from "playwright";
 import pg from "pg";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { DEMO_BOT_TOKEN, makeInitData } from "./tg_initdata.mjs";
+import { telegramStub } from "./tg_stub.mjs";
 
 const BASE = process.env.BASE || "http://localhost:8080";
 const DATABASE_URL = process.env.DATABASE_URL || "postgres://dating:dating@localhost:5432/dating";
 const OUT = process.env.OUT || "build/shots";
 mkdirSync(OUT, { recursive: true });
 const initData = (id, name) => makeInitData(DEMO_BOT_TOKEN, id, name, `u${id}`);
-
-// Заглушка telegram-web-app.js: подписанные initData и имитация системной кнопки MainButton
-// (как в Telegram, при показе кнопки область веб-приложения уменьшается на ее высоту).
-const stub = (data, name) => `
-(function(){
-  var cb=null, bar=null;
-  function ensure(){ if(!bar){ bar=document.createElement('div'); bar.id='tg-main-button';
-    bar.style.cssText='position:fixed;left:0;right:0;bottom:0;height:52px;background:#2481cc;color:#fff;display:none;align-items:center;justify-content:center;font:600 16px sans-serif;z-index:9999;cursor:pointer';
-    bar.onclick=function(){ cb && cb(); }; document.body.appendChild(bar);} return bar; }
-  window.__tgLog=[];
-  window.Telegram={WebApp:{
-    initData:${JSON.stringify(data)},
-    initDataUnsafe:{user:{id:0,first_name:${JSON.stringify(name)}}},
-    themeParams:{bg_color:'#ffffff',text_color:'#000000',hint_color:'#999999',button_color:'#2481cc',button_text_color:'#ffffff',secondary_bg_color:'#f1f1f4'},
-    colorScheme:'light', ready:function(){}, expand:function(){}, close:function(){},
-    HapticFeedback:{impactOccurred:function(s){window.__tgLog.push('haptic:'+s)},notificationOccurred:function(s){window.__tgLog.push('notify:'+s)}},
-    openTelegramLink:function(u){window.__tgLog.push('open:'+u)},
-    MainButton:{ setText:function(t){ensure().textContent=t.toUpperCase()}, show:function(){ensure().style.display='flex'; var r=document.getElementById('root'); if(r) r.style.height='calc(100% - 52px)'},
-      hide:function(){ensure().style.display='none'; var r=document.getElementById('root'); if(r) r.style.height=''}, enable:function(){}, disable:function(){},
-      showProgress:function(){}, hideProgress:function(){}, onClick:function(f){cb=f}, offClick:function(){cb=null} }
-  }};
-})();`;
 
 const results = [];
 const check = (id, name, ok, note = "") => { results.push({ id, name, ok, note }); console.log((ok ? "OK  " : "FAIL") + " " + id + " " + name + " " + note); };
@@ -40,7 +19,7 @@ async function open(browser, id, name) {
   const page = await ctx.newPage();
   page.on("pageerror", (e) => check("JS", "ошибка JavaScript", false, e.message));
   await page.route("https://telegram.org/js/telegram-web-app.js", (r) =>
-    r.fulfill({ contentType: "application/javascript", body: stub(initData(id, name), name) }));
+    r.fulfill({ contentType: "application/javascript", body: telegramStub(initData(id, name), name) }));
   await page.goto(BASE + "/");
   return { ctx, page };
 }

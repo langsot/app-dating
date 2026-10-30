@@ -52,6 +52,17 @@ docker compose --profile tests run --rm tests     # 45 тестов на Postgre
 База `dating_test` создается при первом создании тома БД. Если том был создан раньше:
 `docker compose exec db psql -U dating -d dating -c "CREATE DATABASE dating_test"`.
 
+## Локальная отладка без Telegram
+Отдельная копия приложения со своей базой и демо-токеном бота; рабочие контейнеры и данные не затрагиваются.
+```bash
+docker compose -f docker-compose.debug.yml up -d --build
+docker compose -f docker-compose.debug.yml run --rm seed     # демо-анкеты, один раз
+```
+Откройте в браузере `http://localhost:8080/?user=1001&name=Евгений`. Другой `user` — другой пользователь.
+Подписанные данные для запросов к API: `http://localhost:8080/__debug/initdata?user=1001`.
+Проверить системную кнопку и открытие чатов можно только в настоящем Telegram, а уведомления бота здесь не отправляются.
+Остановить: `docker compose -f docker-compose.debug.yml down` (с `-v` — удалить и данные отладки).
+
 ## 7. Обслуживание
 ```bash
 docker compose ps                      # состояние
