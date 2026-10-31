@@ -21,13 +21,15 @@ export function PhotoUploader({ api, photos, onChange, pending, onPendingChange,
     setError("");
     if (!["image/jpeg", "image/png"].includes(file.type)) { setError("Допускаются только JPEG и PNG"); return; }
     if (file.size > 5 * 1024 * 1024) { setError("Размер файла должен быть не более 5 МБ"); return; }
-    if (deferred) {
-      onPendingChange([...pending, { file, url: URL.createObjectURL(file) }]);
-      return;
-    }
     setBusy(true);
     try {
-      const p = await api.uploadPhoto(file);
+      // Файл читается в память сразу: позже доступ к нему у WebView может пропасть, и отправка падает как сбой сети
+      const content = new Blob([await file.arrayBuffer()], { type: file.type });
+      if (deferred) {
+        onPendingChange([...pending, { file: content, url: URL.createObjectURL(content) }]);
+        return;
+      }
+      const p = await api.uploadPhoto(content);
       onChange([...photos, p]);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Не удалось загрузить фото");
