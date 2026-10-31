@@ -12,12 +12,13 @@ export class ApiError extends Error {
 /** Клиент REST API сервера: хранит токен доступа и преобразует ответы в DTO. */
 export class BackendApiClient {
   private token: string | null = null;
+  private initData: string | null = null;
 
   constructor(private readonly baseUrl = "", private readonly fetchImpl: typeof fetch = fetch.bind(globalThis)) {}
 
   get authorized(): boolean { return this.token !== null; }
 
-  private async request<T>(method: string, path: string, body?: unknown, isForm = false): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown, isForm = false, canRetry = true): Promise<T> {
     const headers: Record<string, string> = {};
     if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
     if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
@@ -28,18 +29,32 @@ export class BackendApiClient {
         body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       });
     } catch {
+      console.warn(`[api] ${method} ${path}: нет соединения`);
       throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.");
+    }
+    console.info(`[api] ${method} ${path} -> ${resp.status}`);
+    // Срок токена истек, пока приложение было открыто: входим заново и повторяем запрос один раз
+    if (resp.status === 401 && canRetry && this.initData && this.token) {
+      await this.authenticate(this.initData);
+      return this.request<T>(method, path, body, isForm, false);
     }
     if (resp.status === 204) return undefined as T;
     const text = await resp.text();
-    const data = text ? JSON.parse(text) : null;
-    if (!resp.ok) throw new ApiError(resp.status, data?.message ?? `Ошибка ${resp.status}`, data?.details ?? []);
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      // Сбой по пути к приложению: прокси отвечает страницей, а не JSON
+      if (resp.ok) throw new ApiError(resp.status, "Некорректный ответ сервера");
+    }
+    if (!resp.ok) throw new ApiError(resp.status, data?.message ?? `Ошибка сервера (${resp.status}). Повторите попытку позже.`, data?.details ?? []);
     return data as T;
   }
 
   async authenticate(initData: string): Promise<AuthResponse> {
-    const r = await this.request<AuthResponse>("POST", "/api/auth/telegram", { initData });
+    const r = await this.request<AuthResponse>("POST", "/api/auth/telegram", { initData }, false, false);
     this.token = r.token;
+    this.initData = initData;
     return r;
   }
 

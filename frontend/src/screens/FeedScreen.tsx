@@ -16,24 +16,41 @@ export function FeedScreen({ api, tg, profile, onProfileChanged, onMatch }:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const loadingRef = useRef(false);
+  /** Номер запроса: ответ, пришедший после смены фильтра, отбрасывается. */
+  const generation = useRef(0);
 
   async function loadNext() {
     if (loadingRef.current) return;
     loadingRef.current = true;
+    const current = generation.current;
+    let batch: FeedCardDto[] | null = null;
+    let failure = "";
     try {
-      queue.current.append(await api.getFeed(10));
-      setError("");
+      batch = await api.getFeed(10);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Не удалось загрузить анкеты");
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
-      setCards(queue.current.peek(3));
+      failure = e instanceof ApiError ? e.message : "Не удалось загрузить анкеты";
     }
+    loadingRef.current = false;
+    if (current !== generation.current) { loadNext(); return; }
+    if (batch) queue.current.append(batch);
+    setError(failure);
+    setLoadFailed(!!failure);
+    setLoading(false);
+    setCards(queue.current.peek(3));
   }
 
-  useEffect(() => { queue.current.reset(); setLoading(true); loadNext(); }, [profile.preferredGender, profile.minAge, profile.maxAge]); // eslint-disable-line react-hooks/exhaustive-deps
+  function reload() {
+    generation.current++;
+    queue.current.reset();
+    setCards([]);
+    setLoading(true);
+    setLoadFailed(false);
+    loadNext();
+  }
+
+  useEffect(reload, [profile.preferredGender, profile.minAge, profile.maxAge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSwipe(dir: Direction) {
     const type = directionToLike(dir);
@@ -46,7 +63,10 @@ export function FeedScreen({ api, tg, profile, onProfileChanged, onMatch }:
       const r = await api.rate(card.userId, type);
       if (r.matched && r.match) { tg.haptic("success"); onMatch(r.match); }
     } catch (e) {
+      queue.current.restore(card);
+      setCards(queue.current.peek(3));
       setError(e instanceof ApiError ? e.message : "Оценка не сохранена");
+      return;
     }
     if (queue.current.needsRefill()) loadNext();
   }
@@ -68,7 +88,13 @@ export function FeedScreen({ api, tg, profile, onProfileChanged, onMatch }:
       </div>
       <div className="stack">
         {loading && <div className="empty">Загрузка…</div>}
-        {!loading && cards.length === 0 && (
+        {!loading && cards.length === 0 && loadFailed && (
+          <div className="empty" data-testid="feed-error">
+            <p>Не удалось загрузить анкеты</p>
+            <button className="btn" onClick={reload}>Повторить</button>
+          </div>
+        )}
+        {!loading && cards.length === 0 && !loadFailed && (
           <div className="empty" data-testid="feed-empty">
             <p>Анкеты закончились</p>
             <p className="hint">Измените фильтр или загляните позже</p>

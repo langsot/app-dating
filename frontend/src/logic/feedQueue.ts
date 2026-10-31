@@ -27,6 +27,9 @@ export class FeedQueue {
   /** Убирает текущую карточку после оценки. */
   pop(): FeedCardDto | undefined { return this.items.shift(); }
 
+  /** Возвращает карточку в начало очереди, если оценку не удалось сохранить. */
+  restore(card: FeedCardDto): void { this.items.unshift(card); }
+
   needsRefill(): boolean { return !this.exhausted && this.items.length <= REFILL_AT; }
 
   reset(): void { this.items = []; this.seen.clear(); this.exhausted = false; }
