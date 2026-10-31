@@ -2,6 +2,10 @@ import type {
   AuthResponse, FeedCardDto, InterestDto, LikeType, MatchDto, PhotoDto, ProfileDto, ProfileForm, RateResult,
 } from "../types";
 
+/** Ответы шлюза Cloudflare, когда приложение на мгновение недоступно. */
+const GATEWAY_ERRORS = new Set([502, 503, 504, 520, 521, 522, 523, 524, 530]);
+const RESEND_DELAY_MS = 500;
+
 /** Ошибка API с кодом HTTP и сообщением сервера. */
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string, public readonly details: string[] = []) {
@@ -18,28 +22,33 @@ export class BackendApiClient {
 
   get authorized(): boolean { return this.token !== null; }
 
-  private async request<T>(method: string, path: string, body?: unknown, isForm = false, canRetry = true): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown, isForm = false, canRetry = true, canResend = true): Promise<T> {
     const headers: Record<string, string> = {};
     if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
     if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
     let resp: Response;
+    let text = "";
     try {
       resp = await this.fetchImpl(this.baseUrl + path, {
         method, headers,
         body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       });
+      // Соединение может оборваться и во время чтения ответа
+      text = await resp.text();
     } catch {
-      console.warn(`[api] ${method} ${path}: нет соединения`);
+      console.warn(`[api] ${method} ${path}: соединение оборвалось`);
+      if (method === "GET" && canResend) return this.resend<T>(method, path, canRetry);
       throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.");
     }
     console.info(`[api] ${method} ${path} -> ${resp.status}`);
+    // Кратковременный сбой по пути к приложению: чтение безопасно повторить
+    if (method === "GET" && canResend && GATEWAY_ERRORS.has(resp.status)) return this.resend<T>(method, path, canRetry);
     // Срок токена истек, пока приложение было открыто: входим заново и повторяем запрос один раз
     if (resp.status === 401 && canRetry && this.initData && this.token) {
       await this.authenticate(this.initData);
       return this.request<T>(method, path, body, isForm, false);
     }
     if (resp.status === 204) return undefined as T;
-    const text = await resp.text();
     let data: any = null;
     try {
       data = text ? JSON.parse(text) : null;
@@ -49,6 +58,11 @@ export class BackendApiClient {
     }
     if (!resp.ok) throw new ApiError(resp.status, data?.message ?? `Ошибка сервера (${resp.status}). Повторите попытку позже.`, data?.details ?? []);
     return data as T;
+  }
+
+  private async resend<T>(method: string, path: string, canRetry: boolean): Promise<T> {
+    await new Promise((done) => setTimeout(done, RESEND_DELAY_MS));
+    return this.request<T>(method, path, undefined, false, canRetry, false);
   }
 
   async authenticate(initData: string): Promise<AuthResponse> {
