@@ -11,7 +11,9 @@ export function MatchPopup({ match, myPhoto, onWrite, onClose }:
           <div className="avatar" style={{ backgroundImage: match.partnerPhotoUrl ? `url(${match.partnerPhotoUrl})` : undefined }} />
         </div>
         <p>Вы понравились друг другу с {match.partnerName}</p>
-        <button className="btn wide" onClick={onWrite}>Написать в Telegram</button>
+        {match.partnerUsername
+          ? <button className="btn wide" onClick={onWrite}>Написать в Telegram</button>
+          : <p className="hint">У собеседника не задано имя пользователя в Telegram: дождитесь сообщения от него</p>}
         <button className="link" onClick={onClose}>Продолжить просмотр</button>
       </div>
     </div>

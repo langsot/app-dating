@@ -10,7 +10,7 @@ interface TgWebApp {
   initData: string;
   initDataUnsafe?: { user?: { id: number; first_name?: string; username?: string } };
   themeParams: ThemeParams; colorScheme?: string;
-  ready(): void; expand(): void; close(): void;
+  ready(): void; expand(): void; close(): void; disableVerticalSwipes?(): void;
   MainButton: TgMainButton;
   HapticFeedback?: { impactOccurred(s: string): void; notificationOccurred(t: string): void };
   openTelegramLink(url: string): void;
@@ -32,7 +32,11 @@ export class TelegramWebAppAdapter {
   get firstName(): string { return this.webApp?.initDataUnsafe?.user?.first_name ?? ""; }
 
   ready(): void { this.webApp?.ready(); }
-  expand(): void { this.webApp?.expand(); }
+  expand(): void {
+    this.webApp?.expand();
+    // Иначе свайп вверх (суперлайк) сворачивает мини-приложение
+    this.webApp?.disableVerticalSwipes?.();
+  }
 
   showMainButton(text: string, cb: () => void): void {
     const mb = this.webApp?.MainButton;

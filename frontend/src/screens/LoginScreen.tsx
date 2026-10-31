@@ -4,7 +4,7 @@ import type { AuthResponse } from "../types";
 import { ApiError } from "../api/BackendApiClient";
 
 /** Экран авторизации: при запуске отправляет initData на сервер. */
-export function LoginScreen({ api, tg, onAuthorized }: ScreenProps & { onAuthorized: (r: AuthResponse) => void }) {
+export function LoginScreen({ api, tg, onAuthorized }: ScreenProps & { onAuthorized: (r: AuthResponse) => Promise<void> }) {
   const [status, setStatus] = useState<"pending" | "error" | "outside">("pending");
   const [message, setMessage] = useState("");
 
@@ -12,7 +12,7 @@ export function LoginScreen({ api, tg, onAuthorized }: ScreenProps & { onAuthori
     if (!tg.available) { setStatus("outside"); return; }
     setStatus("pending");
     try {
-      onAuthorized(await api.authenticate(tg.initData));
+      await onAuthorized(await api.authenticate(tg.initData));
     } catch (e) {
       setStatus("error");
       setMessage(e instanceof ApiError ? e.message : "Не удалось войти");

@@ -34,8 +34,12 @@ export function MatchListScreen({ api, tg }: ScreenProps) {
   }
 
   async function unmatch(m: MatchDto) {
-    await api.unmatch(m.id);
-    refresh();
+    try {
+      await api.unmatch(m.id);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Не удалось разорвать мэтч");
+    }
   }
 
   return (

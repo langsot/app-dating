@@ -29,7 +29,7 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
     try {
       const p = await api.saveProfile(form);
       setSaved(true); tg.haptic("success");
-      onSaved({ ...p, photos });
+      onSaved({ ...p, photos, hidden });
     } catch (err) {
       setServerError(err instanceof ApiError ? [err.message, ...err.details].join("; ") : "Не удалось сохранить");
       tg.haptic("error");
@@ -55,11 +55,17 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
   }
 
   async function toggleHidden() {
-    await api.setHidden(!hidden);
-    setHidden(!hidden);
+    setServerError("");
+    try {
+      await api.setHidden(!hidden);
+      setHidden(!hidden);
+      if (profile) onSaved({ ...profile, hidden: !hidden });
+    } catch (err) {
+      setServerError(err instanceof ApiError ? err.message : "Не удалось изменить видимость анкеты");
+    }
   }
 
-  const set = <K extends keyof ProfileForm>(k: K, v: ProfileForm[K]) => setForm({ ...form, [k]: v });
+  const set = <K extends keyof ProfileForm>(k: K, v: ProfileForm[K]) => { setSaved(false); setForm({ ...form, [k]: v }); };
   const photosChanged = (p: PhotoDto[]) => { setPhotos(p); if (profile) onSaved({ ...profile, photos: p, complete: p.length > 0 }); };
 
   return (

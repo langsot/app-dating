@@ -35,12 +35,18 @@ export function SwipeCard({ card, onSwipe, top }:
     } else onSwipe(dir);
   }
 
+  /** Система перехватила жест (например, Telegram): карточка возвращается на место. */
+  function onCancel() {
+    start.current = null;
+    setD({ x: 0, y: 0 });
+  }
+
   const width = ref.current?.offsetWidth ?? 300;
   const style = { transform: `translate(${d.x}px, ${d.y}px) rotate(${rotationFor(d.x, width)}deg)` };
   const label = swipeDirection(d.x, d.y, width);
   return (
     <div ref={ref} className={top ? "card top" : "card"} style={top ? style : undefined}
-         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} data-testid={top ? "card-top" : undefined}>
+         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onCancel} data-testid={top ? "card-top" : undefined}>
       <div className="card-photo" style={{ backgroundImage: card.photoUrls[photo] ? `url(${card.photoUrls[photo]})` : undefined }} />
       {card.photoUrls.length > 1 && (
         <div className="dots">{card.photoUrls.map((_, i) => <span key={i} className={i === photo ? "on" : ""} />)}</div>
