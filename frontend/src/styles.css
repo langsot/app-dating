@@ -87,8 +87,8 @@ textarea { resize: vertical; }
 .pop h2 { margin: 0; color: var(--accent); font-size: 26px; }
 .pair { display: flex; gap: 10px; } .pair .avatar { width: 76px; height: 76px; }
 .tabbar { display: flex; border-top: 1px solid var(--sec-bg); background: var(--bg); }
-.tab { flex: 1; background: none; border: 0; padding: 8px 0 10px; color: var(--hint); font: inherit; font-size: 12px;
+.tab { flex: 1; background: none; border: 0; padding: 12px 0 calc(14px + env(safe-area-inset-bottom)); color: var(--hint); font: inherit; font-size: 15px;
   display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
-.tab.on { color: var(--accent); font-weight: 600; } .tab-icon { font-size: 16px; }
+.tab.on { color: var(--accent); font-weight: 600; } .tab-icon { font-size: 24px; line-height: 1.2; }
 
 .link.danger { color: #d33; margin-top: 4px; }
