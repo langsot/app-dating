@@ -72,6 +72,7 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorDto> build(HttpStatus status, String message, List<String> details) {
+        log.warn("Ответ {}: {} {}", status.value(), message, details);
         return ResponseEntity.status(status)
                 .body(new ErrorDto(status.value(), status.getReasonPhrase(), message, details));
     }

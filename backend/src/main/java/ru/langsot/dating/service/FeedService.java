@@ -1,5 +1,7 @@
 package ru.langsot.dating.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.langsot.dating.config.AppProperties;
@@ -17,6 +19,8 @@ import java.util.Set;
 /** Подбор анкет для ленты (ВИ-3). */
 @Service
 public class FeedService {
+
+    private static final Logger log = LoggerFactory.getLogger(FeedService.class);
 
     private final ProfileRepository profiles;
     private final LikeRepository likes;
@@ -52,11 +56,13 @@ public class FeedService {
         List<Profile> found = profiles.findCandidates(q.viewerId(), q.genders(), q.bornBefore(), q.bornAfter(),
                 q.viewerGender(), q.viewerAge(), lim);
         if (found.isEmpty()) {
+            log.info("Лента: для пользователя {} нет подходящих анкет", userId);
             return List.of();
         }
         // Признак суперлайка — одним запросом для всей пачки; фото и интересы догружаются
         // пакетно (hibernate.default_batch_fetch_size), а не отдельным запросом на каждую карточку.
         Set<Long> superLikers = likes.findSuperLikers(userId, found.stream().map(p -> p.getUser().getId()).toList());
+        log.info("Лента: пользователю {} выдано карточек: {}", userId, found.size());
         return found.stream()
                 .map(p -> DtoMapper.toCard(p, superLikers.contains(p.getUser().getId())))
                 .toList();

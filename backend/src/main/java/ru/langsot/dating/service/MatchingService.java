@@ -1,5 +1,7 @@
 package ru.langsot.dating.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,8 @@ import java.util.Optional;
 /** Оценка анкет и образование мэтчей (ВИ-4, ВИ-5). */
 @Service
 public class MatchingService {
+
+    private static final Logger log = LoggerFactory.getLogger(MatchingService.class);
 
     private final UserRepository users;
     private final LikeRepository likes;
@@ -66,6 +70,7 @@ public class MatchingService {
         Optional<Like> existing = likes.findByFromIdAndToId(fromId, toId);
         if (existing.isPresent()) {
             // Повторная оценка (например, двойное нажатие) не меняет результат.
+            log.info("Оценка: повтор {} -> {}, результат не меняется", fromId, toId);
             return currentResult(fromId, toId);
         }
         likes.save(new Like(from, to, type));
@@ -74,6 +79,7 @@ public class MatchingService {
             events.publishEvent(new SuperLikeEvent(fromId, toId));
         }
         if (!type.isPositive() || !likes.existsPositive(toId, fromId)) {
+            log.info("Оценка: {} -> {} {}, мэтча нет", fromId, toId, type);
             return RateResult.noMatch();
         }
         Match match = matches.findByPair(first.getId(), second.getId())
@@ -82,6 +88,7 @@ public class MatchingService {
                     events.publishEvent(new MatchCreatedEvent(created.getId()));
                     return created;
                 });
+        log.info("Оценка: {} -> {} {}, мэтч {}", fromId, toId, type, match.getId());
         return new RateResult(true, match.getId(), toDto(match, fromId));
     }
 
@@ -96,6 +103,7 @@ public class MatchingService {
                 .filter(m -> m.involves(userId))
                 .orElseThrow(() -> new NotFoundException("Мэтч не найден"));
         match.unmatch();
+        log.info("Мэтч {} разорван пользователем {}", matchId, userId);
     }
 
     private RateResult currentResult(Long fromId, Long toId) {
