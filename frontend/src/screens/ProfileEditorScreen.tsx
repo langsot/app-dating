@@ -41,15 +41,15 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
     return () => tg.hideMainButton();
   });
 
-  /** Удаление анкеты в два нажатия, чтобы исключить случайную деактивацию. */
+  /** Удаление учетной записи в два нажатия, чтобы исключить случайное удаление. */
   async function deleteProfile() {
     if (!confirmDelete) { setConfirmDelete(true); tg.haptic("medium"); return; }
     try {
-      await api.deactivate();
+      await api.deleteAccount();
       tg.haptic("success");
       onDeleted();
     } catch (err) {
-      setServerError(err instanceof ApiError ? err.message : "Не удалось удалить анкету");
+      setServerError(err instanceof ApiError ? err.message : "Не удалось удалить учетную запись");
       setConfirmDelete(false);
     }
   }
@@ -110,7 +110,7 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
       )}
       {profile && (
         <button className="link danger" onClick={deleteProfile} data-testid="delete">
-          {confirmDelete ? "Нажмите еще раз, чтобы удалить анкету" : "Удалить анкету"}</button>
+          {confirmDelete ? "Нажмите еще раз: данные будут удалены безвозвратно" : "Удалить учетную запись"}</button>
       )}
     </div>
   );

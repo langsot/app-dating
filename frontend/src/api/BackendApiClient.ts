@@ -67,8 +67,8 @@ export class BackendApiClient {
 
   deletePhoto(id: number): Promise<void> { return this.request<void>("DELETE", `/api/profile/me/photos/${id}`); }
   setHidden(hidden: boolean): Promise<void> { return this.request<void>("PATCH", "/api/profile/me/visibility", { hidden }); }
-  /** Деактивация учетной записи (анкета исчезает из ленты; повторный вход ее восстанавливает). */
-  deactivate(): Promise<void> { return this.request<void>("DELETE", "/api/profile/me"); }
+  /** Безвозвратное удаление учетной записи со всеми данными. */
+  deleteAccount(): Promise<void> { return this.request<void>("DELETE", "/api/profile/me"); }
   getInterests(): Promise<InterestDto[]> { return this.request<InterestDto[]>("GET", "/api/interests"); }
   getFeed(limit = 10): Promise<FeedCardDto[]> { return this.request<FeedCardDto[]>("GET", `/api/feed?limit=${limit}`); }
   rate(userId: number, type: LikeType): Promise<RateResult> {

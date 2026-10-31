@@ -3,6 +3,7 @@ package ru.langsot.dating.repository;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ru.langsot.dating.domain.User;
@@ -17,4 +18,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
     Optional<User> lockById(@Param("id") Long id);
+
+    /** Удаление без загрузки связей: анкету, фото, лайки и мэтчи удаляет каскад в базе данных. */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from User u where u.id = :id")
+    int deleteNow(@Param("id") Long id);
 }

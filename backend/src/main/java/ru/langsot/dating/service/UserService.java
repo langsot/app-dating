@@ -49,7 +49,9 @@ public class UserService {
     }
 
     @Transactional
-    public void deactivate(Long userId) {
-        get(userId).deactivate();
+    public void delete(Long userId) {
+        if (users.deleteNow(userId) == 0) {
+            throw new NotFoundException("Пользователь не найден");
+        }
     }
 }
