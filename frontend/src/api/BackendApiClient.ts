@@ -38,7 +38,7 @@ export class BackendApiClient {
     } catch (e) {
       console.warn(`[api] ${method} ${path}: соединение оборвалось`, e);
       if (method === "GET" && canResend) return this.resend<T>(method, path, canRetry);
-      throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.");
+      throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.", [String(e)]);
     }
     console.info(`[api] ${method} ${path} -> ${resp.status}`);
     // Кратковременный сбой по пути к приложению: чтение безопасно повторить

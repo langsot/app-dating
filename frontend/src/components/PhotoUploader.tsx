@@ -1,38 +1,51 @@
-import { useEffect, useRef, useState } from "react";
-import type { PendingPhoto, PhotoDto } from "../types";
+import { useRef, useState } from "react";
+import type { PhotoDto } from "../types";
 import { MAX_PHOTOS } from "../logic/profileForm";
 import { ApiError, type BackendApiClient } from "../api/BackendApiClient";
+import { compressImage } from "./compressImage";
 
-/**
- * Фотографии анкеты. Пока анкета не создана (deferred), выбранные файлы только показываются
- * и ждут первого сохранения: сервер принимает фото лишь для существующей анкеты.
- */
-export function PhotoUploader({ api, photos, onChange, pending, onPendingChange, deferred }:
-  { api: BackendApiClient; photos: PhotoDto[]; onChange: (p: PhotoDto[]) => void;
-    pending: PendingPhoto[]; onPendingChange: (p: PendingPhoto[]) => void; deferred: boolean }) {
+/** Лимит сервера для загружаемого файла. */
+const SERVER_LIMIT = 5 * 1024 * 1024;
+/** Лимит для исходного снимка: перед отправкой он сжимается. */
+const SOURCE_LIMIT = 20 * 1024 * 1024;
+
+const kb = (size: number) => `${Math.round(size / 1024)} КБ`;
+
+export function PhotoUploader({ api, photos, onChange }:
+  { api: BackendApiClient; photos: PhotoDto[]; onChange: (p: PhotoDto[]) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // После создания анкеты ошибка выбора файла уже неактуальна
-  useEffect(() => { setError(""); }, [deferred]);
+  /** Сжатое фото, а если сжать не удалось — исходный файл, когда его примет сервер. */
+  async function prepare(file: File): Promise<Blob> {
+    try {
+      return await compressImage(file);
+    } catch (e) {
+      console.warn("[photo] сжатие не удалось", e);
+      if (["image/jpeg", "image/png"].includes(file.type) && file.size <= SERVER_LIMIT) return file;
+      throw new Error(`Не удалось обработать фото (${file.type || "тип неизвестен"}, ${kb(file.size)}): ${e}`);
+    }
+  }
 
   async function add(file: File) {
     setError("");
-    if (!["image/jpeg", "image/png"].includes(file.type)) { setError("Допускаются только JPEG и PNG"); return; }
-    if (file.size > 5 * 1024 * 1024) { setError("Размер файла должен быть не более 5 МБ"); return; }
+    if (file.type && !file.type.startsWith("image/")) { setError("Выберите изображение"); return; }
+    if (file.size > SOURCE_LIMIT) { setError("Размер файла должен быть не более 20 МБ"); return; }
     setBusy(true);
     try {
-      // Файл читается в память сразу: позже доступ к нему у WebView может пропасть, и отправка падает как сбой сети
-      const content = new Blob([await file.arrayBuffer()], { type: file.type });
-      if (deferred) {
-        onPendingChange([...pending, { file: content, url: URL.createObjectURL(content) }]);
-        return;
+      const content = await prepare(file);
+      console.info(`[photo] ${kb(file.size)} -> ${kb(content.size)}`);
+      try {
+        const p = await api.uploadPhoto(content);
+        onChange([...photos, p]);
+      } catch (e) {
+        // Причина показывается на экране: на телефоне консоль недоступна
+        const reason = e instanceof ApiError ? [e.message, ...e.details].join("; ") : String(e);
+        setError(`${reason} (фото ${kb(content.size)}, исходное ${kb(file.size)})`);
       }
-      const p = await api.uploadPhoto(content);
-      onChange([...photos, p]);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Не удалось загрузить фото");
+      setError(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
   }
 
@@ -43,11 +56,6 @@ export function PhotoUploader({ api, photos, onChange, pending, onPendingChange,
     } catch (e) { setError(e instanceof ApiError ? e.message : "Не удалось удалить фото"); }
   }
 
-  function removePending(item: PendingPhoto) {
-    URL.revokeObjectURL(item.url);
-    onPendingChange(pending.filter((p) => p !== item));
-  }
-
   return (
     <div>
       <div className="photo-grid">
@@ -56,19 +64,13 @@ export function PhotoUploader({ api, photos, onChange, pending, onPendingChange,
             <button type="button" className="photo-del" onClick={() => remove(p.id)} aria-label="Удалить">✕</button>
           </div>
         ))}
-        {pending.map((p) => (
-          <div key={p.url} className="photo" style={{ backgroundImage: `url(${p.url})` }} data-testid="photo-pending">
-            <button type="button" className="photo-del" onClick={() => removePending(p)} aria-label="Удалить">✕</button>
-          </div>
-        ))}
-        {photos.length + pending.length < MAX_PHOTOS && (
+        {photos.length < MAX_PHOTOS && (
           <button type="button" className="photo-add" disabled={busy}
                   onClick={() => input.current?.click()} data-testid="photo-add">{busy ? "…" : "+"}</button>
         )}
       </div>
-      {pending.length > 0 && <div className="hint">Фотографии загрузятся при сохранении анкеты</div>}
-      {error && <div className="error">{error}</div>}
-      <input ref={input} type="file" accept="image/jpeg,image/png" hidden data-testid="photo-input"
+      {error && <div className="error" data-testid="photo-error">{error}</div>}
+      <input ref={input} type="file" accept="image/*" hidden data-testid="photo-input"
              onChange={(e) => { const f = e.target.files?.[0]; if (f) add(f); e.target.value = ""; }} />
     </div>
   );

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   swipeDirection, directionToLike, rotationFor,
   ageOn, validateProfile, emptyForm, toggleInterest, MAX_INTERESTS,
-  FeedQueue,
+  FeedQueue, stepErrors, fitSize,
 } from "./build/logic.mjs";
 
 const card = (id) => ({ userId: id, displayName: "U" + id, age: 25, city: null, bio: null,
@@ -62,4 +62,20 @@ test("К-06 очередь ленты: без дубликатов, догруз
   q.append([]);
   assert.equal(q.exhausted, true);
   assert.equal(q.needsRefill(), false);
+});
+
+test("К-07 шаг регистрации проверяет только свои поля", () => {
+  const today = new Date(2026, 0, 1);
+  const f = emptyForm("");
+  assert.deepEqual(Object.keys(stepErrors(f, 0, today)).sort(), ["birthDate", "displayName"]);
+  assert.deepEqual(Object.keys(stepErrors(f, 1, today)), ["gender"]);
+  assert.deepEqual(stepErrors(f, 2, today), {});
+  assert.deepEqual(stepErrors(f, 5, today), {});
+  assert.deepEqual(Object.keys(stepErrors({ ...f, minAge: 40, maxAge: 20 }, 2, today)), ["ageRange"]);
+});
+
+test("К-08 сжатие: большая сторона до 1280 px, пропорции сохраняются, мелкие снимки не растут", () => {
+  assert.deepEqual(fitSize(4000, 3000), { width: 1280, height: 960 });
+  assert.deepEqual(fitSize(3000, 4000), { width: 960, height: 1280 });
+  assert.deepEqual(fitSize(800, 600), { width: 800, height: 600 });
 });

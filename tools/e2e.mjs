@@ -29,14 +29,15 @@ const browser = await chromium.launch();
 // --- новый пользователь: первый вход открывает редактор анкеты
 {
   const { ctx, page } = await open(browser, 3001, "Алексей");
-  await page.waitForSelector("text=Моя анкета", { timeout: 10000 }).catch(() => {});
-  const editor = await page.locator("input").count();
-  check("С-01", "первый вход нового пользователя открывает редактор анкеты", editor > 0);
+  await page.waitForSelector("[data-testid=onboarding]", { timeout: 10000 }).catch(() => {});
+  const wizard = await page.locator("[data-testid=wizard-step]").innerText().catch(() => "");
+  const tabs = await page.locator(".tabbar").count();
+  check("С-01", "новый пользователь видит первый шаг регистрации и не видит вкладок", wizard.includes("Шаг 1") && tabs === 0, wizard);
   await page.screenshot({ path: OUT + "/01_editor_new.png" });
   await page.click("#tg-main-button");
   await page.waitForTimeout(500);
   const errs = await page.locator(".error, .field-error").count();
-  check("С-02", "сохранение пустой анкеты: ошибки проверки показаны у полей", errs > 0, `ошибок: ${errs}`);
+  check("С-02", "переход с пустого шага: ошибки проверки показаны у полей", errs > 0, `ошибок: ${errs}`);
   await page.screenshot({ path: OUT + "/02_editor_errors.png" });
   await ctx.close();
 }
@@ -111,9 +112,9 @@ const browser = await chromium.launch();
   await page.screenshot({ path: OUT + "/09_deleted.png" });
   await ctx.close();
   ({ ctx, page } = await open(browser, 2007, "Сергей"));
-  await page.waitForSelector("[data-testid=name]", { timeout: 10000 });
+  await page.waitForSelector("[data-testid=onboarding]", { timeout: 10000 });
   const st2 = await userStatus(2007);
-  check("С-10", "повторный запуск создает нового пользователя и открывает редактор", st2 === "ACTIVE", st2);
+  check("С-10", "повторный запуск создает нового пользователя и открывает регистрацию", st2 === "ACTIVE", st2);
   await ctx.close();
   await db.end();
 }

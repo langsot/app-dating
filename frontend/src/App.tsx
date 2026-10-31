@@ -3,6 +3,7 @@ import { BackendApiClient } from "./api/BackendApiClient";
 import { TelegramWebAppAdapter } from "./telegram/TelegramWebAppAdapter";
 import type { AuthResponse, MatchDto, ProfileDto, ScreenId } from "./types";
 import { LoginScreen } from "./screens/LoginScreen";
+import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { ProfileEditorScreen } from "./screens/ProfileEditorScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { MatchListScreen, chatLink } from "./screens/MatchListScreen";
@@ -20,7 +21,7 @@ export function App() {
   async function onAuthorized(_r: AuthResponse) {
     const p = await api.getMyProfile();
     setProfile(p);
-    setScreen(p && p.complete ? "feed" : "editor");
+    setScreen(p && p.complete ? "feed" : "onboarding");
   }
 
   function onSaved(p: ProfileDto) {
@@ -32,7 +33,8 @@ export function App() {
     <div className="app">
       <main>
         {screen === "login" && <LoginScreen api={api} tg={tg} onAuthorized={onAuthorized} />}
-        {screen === "editor" && <ProfileEditorScreen api={api} tg={tg} profile={profile} onSaved={onSaved}
+        {screen === "onboarding" && <OnboardingScreen api={api} tg={tg} profile={profile} onSaved={onSaved} onDone={() => setScreen("feed")} />}
+        {screen === "editor" && profile && <ProfileEditorScreen api={api} tg={tg} profile={profile} onSaved={onSaved}
                                                       onDeleted={() => { setProfile(null); setScreen("deleted"); }} />}
         {screen === "deleted" && (
           <div className="center-screen" data-testid="deleted">
@@ -53,7 +55,7 @@ export function App() {
         )}
         {screen === "matches" && <MatchListScreen api={api} tg={tg} />}
       </main>
-      {screen !== "login" && profile && (
+      {screen !== "login" && screen !== "onboarding" && profile && (
         <TabBar current={screen} onSelect={setScreen} />
       )}
       {match && (

@@ -1,48 +1,27 @@
 import { useEffect, useState } from "react";
 import type { ScreenProps } from "./Screen";
-import type { Gender, GenderPreference, InterestDto, PendingPhoto, PhotoDto, ProfileDto, ProfileForm } from "../types";
-import { emptyForm, formFromProfile, MAX_BIO, validateProfile } from "../logic/profileForm";
+import type { Gender, GenderPreference, InterestDto, PhotoDto, ProfileDto, ProfileForm } from "../types";
+import { formFromProfile, MAX_BIO, validateProfile } from "../logic/profileForm";
 import { ApiError } from "../api/BackendApiClient";
 import { PhotoUploader } from "../components/PhotoUploader";
 import { InterestSelector } from "../components/InterestSelector";
 
 /** Редактор анкеты. Сохранение — системной кнопкой Telegram MainButton (или кнопкой формы вне Telegram). */
 export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
-  ScreenProps & { profile: ProfileDto | null; onSaved: (p: ProfileDto) => void; onDeleted: () => void }) {
-  const [form, setForm] = useState<ProfileForm>(profile ? formFromProfile(profile) : emptyForm(tg.firstName));
-  const [photos, setPhotos] = useState<PhotoDto[]>(profile?.photos ?? []);
-  const [pending, setPending] = useState<PendingPhoto[]>([]);
-  // Готовая анкета открывается для просмотра; поля меняются только в режиме редактирования
-  const [editing, setEditing] = useState(!profile);
+  ScreenProps & { profile: ProfileDto; onSaved: (p: ProfileDto) => void; onDeleted: () => void }) {
+  const [form, setForm] = useState<ProfileForm>(formFromProfile(profile));
+  const [photos, setPhotos] = useState<PhotoDto[]>(profile.photos);
+  // Анкета открывается для просмотра; поля меняются только в режиме редактирования
+  const [editing, setEditing] = useState(false);
   const [all, setAll] = useState<InterestDto[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [hidden, setHidden] = useState(profile?.hidden ?? false);
+  const [hidden, setHidden] = useState(profile.hidden);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => { api.getInterests().then(setAll).catch(() => setAll([])); }, [api]);
-
-  /** Загружает фото, выбранные до создания анкеты. Не загрузившиеся остаются в очереди до следующего сохранения. */
-  async function uploadPending(): Promise<PhotoDto[]> {
-    const uploaded = [...photos];
-    const failed: PendingPhoto[] = [];
-    let failure = "";
-    for (const item of pending) {
-      try {
-        uploaded.push(await api.uploadPhoto(item.file));
-        URL.revokeObjectURL(item.url);
-      } catch (err) {
-        failed.push(item);
-        failure = err instanceof ApiError ? err.message : "Не удалось загрузить фото";
-      }
-    }
-    setPhotos(uploaded);
-    setPending(failed);
-    if (failure) setServerError(`Анкета сохранена, но не все фото загружены: ${failure}. Нажмите «Сохранить» еще раз.`);
-    return uploaded;
-  }
 
   async function save() {
     if (busy) return;
@@ -52,11 +31,9 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
     setBusy(true); tg.setMainButtonProgress(true);
     try {
       const p = await api.saveProfile(form);
-      const uploaded = await uploadPending();
       setSaved(true); tg.haptic("success");
-      onSaved({ ...p, photos: uploaded, complete: uploaded.length > 0, hidden });
-      // Если часть фото не загрузилась, форма остается открытой, чтобы повторить сохранение
-      if (uploaded.length - photos.length === pending.length) setEditing(false);
+      onSaved({ ...p, photos, complete: photos.length > 0, hidden });
+      setEditing(false);
     } catch (err) {
       setServerError(err instanceof ApiError ? [err.message, ...err.details].join("; ") : "Не удалось сохранить");
       tg.haptic("error");
@@ -69,7 +46,7 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
   });
 
   function startEditing() {
-    if (profile) setForm(formFromProfile(profile));
+    setForm(formFromProfile(profile));
     setErrors({}); setServerError(""); setSaved(false); setConfirmDelete(false);
     setEditing(true);
   }
@@ -97,16 +74,16 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
     try {
       await api.setHidden(!hidden);
       setHidden(!hidden);
-      if (profile) onSaved({ ...profile, hidden: !hidden });
+      onSaved({ ...profile, hidden: !hidden });
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : "Не удалось изменить видимость анкеты");
     }
   }
 
   const set = <K extends keyof ProfileForm>(k: K, v: ProfileForm[K]) => { setSaved(false); setForm({ ...form, [k]: v }); };
-  const photosChanged = (p: PhotoDto[]) => { setPhotos(p); if (profile) onSaved({ ...profile, photos: p, complete: p.length > 0 }); };
+  const photosChanged = (p: PhotoDto[]) => { setPhotos(p); onSaved({ ...profile, photos: p, complete: p.length > 0 }); };
 
-  if (profile && !editing) {
+  if (!editing) {
     return (
       <div className="screen profile-view" data-testid="profile-view">
         <h2 className="title">Моя анкета</h2>
@@ -136,9 +113,9 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
 
   return (
     <div className="screen editor">
-      <h2 className="title">{profile ? "Редактирование анкеты" : "Создание анкеты"}</h2>
+      <h2 className="title">Редактирование анкеты</h2>
       <label>Фотографии (до 6)</label>
-      <PhotoUploader api={api} photos={photos} onChange={photosChanged} pending={pending} onPendingChange={setPending} deferred={!profile} />
+      <PhotoUploader api={api} photos={photos} onChange={photosChanged} />
 
       <div className="field"><label>Имя</label>
         <input value={form.displayName} maxLength={64} onChange={(e) => set("displayName", e.target.value)} data-testid="name" />
@@ -171,7 +148,7 @@ export function ProfileEditorScreen({ api, tg, profile, onSaved, onDeleted }:
       {serverError && <div className="error">{serverError}</div>}
       {saved && <div className="ok">Анкета сохранена</div>}
       {!tg.hasMainButton && <button className="btn wide" disabled={busy} onClick={save} data-testid="save">Сохранить</button>}
-      {profile && <button className="link" onClick={cancelEditing} data-testid="cancel-edit">Отмена</button>}
+      <button className="link" onClick={cancelEditing} data-testid="cancel-edit">Отмена</button>
     </div>
   );
 }
