@@ -1,5 +1,7 @@
 package ru.langsot.dating.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.langsot.dating.domain.*;
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
 /** Управление анкетой пользователя (ВИ-2, ВИ-6). */
 @Service
 public class ProfileService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProfileService.class);
 
     private final ProfileRepository profiles;
     private final InterestRepository interests;
@@ -54,7 +58,9 @@ public class ProfileService {
         } catch (IllegalArgumentException e) {
             throw new BadRequestException(e.getMessage());
         }
-        return DtoMapper.toDto(profiles.save(profile));
+        ProfileDto saved = DtoMapper.toDto(profiles.save(profile));
+        log.info("Анкета пользователя {} сохранена, заполнена: {}", userId, saved.complete());
+        return saved;
     }
 
     @Transactional
@@ -66,6 +72,7 @@ public class ProfileService {
         String key = storage.store(content, contentType);
         Photo photo = profile.addPhoto(key);
         profiles.flush();
+        log.info("Фото {} добавлено пользователем {}, размер {} байт", photo.getId(), userId, content.length);
         return new PhotoDto(photo.getId(), photo.getUrl(), photo.getPosition());
     }
 
@@ -75,6 +82,7 @@ public class ProfileService {
         try {
             Photo removed = profile.removePhoto(photoId);
             storage.delete(removed.getStorageKey());
+            log.info("Фото {} удалено пользователем {}", photoId, userId);
         } catch (NoSuchElementException e) {
             throw new NotFoundException(e.getMessage());
         }
@@ -88,6 +96,7 @@ public class ProfileService {
                 .orElse(List.of());
         userService.delete(userId);
         keys.forEach(storage::delete);
+        log.info("Учетная запись {} удалена, файлов фото: {}", userId, keys.size());
     }
 
     @Transactional(readOnly = true)

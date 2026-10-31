@@ -1,5 +1,7 @@
 package ru.langsot.dating.web;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -10,6 +12,8 @@ import tools.jackson.databind.JsonNode;
 /** Прием обновлений от Telegram Bot API: на команду /start бот присылает кнопку запуска мини-приложения. */
 @RestController
 public class TelegramWebhookController {
+
+    private static final Logger log = LoggerFactory.getLogger(TelegramWebhookController.class);
 
     private final TelegramBotClient bot;
 
@@ -25,7 +29,9 @@ public class TelegramWebhookController {
             bot.sendMessage(message.path("chat").path("id").asLong(),
                     "Привет! Здесь можно найти новых знакомых среди пользователей Telegram. Нажмите кнопку ниже.",
                     "Открыть знакомства");
+            return ResponseEntity.ok().build();
         }
+        log.debug("Webhook: обновление без команды /start пропущено");
         return ResponseEntity.ok().build();
     }
 }

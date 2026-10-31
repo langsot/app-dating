@@ -1,5 +1,7 @@
 package ru.langsot.dating.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.langsot.dating.domain.User;
@@ -9,6 +11,8 @@ import ru.langsot.dating.service.InitDataValidator.TelegramUser;
 
 @Service
 public class UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository users;
 
@@ -46,6 +50,7 @@ public class UserService {
         } else {
             user.show();
         }
+        log.info("Пользователь {}: анкета скрыта: {}", userId, hidden);
     }
 
     @Transactional
