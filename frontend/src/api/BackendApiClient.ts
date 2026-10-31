@@ -35,8 +35,8 @@ export class BackendApiClient {
       });
       // Соединение может оборваться и во время чтения ответа
       text = await resp.text();
-    } catch {
-      console.warn(`[api] ${method} ${path}: соединение оборвалось`);
+    } catch (e) {
+      console.warn(`[api] ${method} ${path}: соединение оборвалось`, e);
       if (method === "GET" && canResend) return this.resend<T>(method, path, canRetry);
       throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.");
     }
