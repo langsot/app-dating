@@ -50,3 +50,12 @@ export function toggleInterest(selected: string[], name: string): string[] {
   if (selected.length >= MAX_INTERESTS) return selected;
   return [...selected, name];
 }
+
+/** Поля, которые проверяются на каждом шаге регистрации. */
+const STEP_FIELDS: string[][] = [["displayName", "birthDate"], ["gender"], ["ageRange"], ["bio"], ["interests"], []];
+
+/** Ошибки только тех полей, что заполняются на данном шаге регистрации. */
+export function stepErrors(f: ProfileForm, step: number, today: Date = new Date()): Record<string, string> {
+  const all = validateProfile(f, today);
+  return Object.fromEntries(Object.entries(all).filter(([k]) => STEP_FIELDS[step]?.includes(k)));
+}
