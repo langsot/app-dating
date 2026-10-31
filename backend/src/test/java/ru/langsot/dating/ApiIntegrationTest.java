@@ -359,15 +359,19 @@ class ApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("Т-34 деактивация убирает анкету из ленты, повторный вход возвращает")
-    void deactivateAndReturn() throws Exception {
+    @DisplayName("Т-34 удаление учетной записи убирает все данные, повторный вход создает нового пользователя")
+    void deleteAccountAndReturn() throws Exception {
         Session a = person(71, "Иван", 25, "MALE", "FEMALE", 18, 45);
         Session b = person(72, "Анна", 24, "FEMALE", "MALE", 18, 45);
         mvc.perform(delete("/api/profile/me").header("Authorization", "Bearer " + b.token()))
                 .andExpect(status().isNoContent());
         assertThat(feedIds(a)).isEmpty();
-        login(72, "Анна");
-        assertThat(feedIds(a)).containsExactly(b.userId());
+        mvc.perform(get("/api/profile/me").header("Authorization", "Bearer " + b.token()))
+                .andExpect(status().isNotFound());
+        Session again = login(72, "Анна");
+        assertThat(again.userId()).isNotEqualTo(b.userId());
+        mvc.perform(get("/api/profile/me").header("Authorization", "Bearer " + again.token()))
+                .andExpect(status().isNotFound());
     }
 
     @Test

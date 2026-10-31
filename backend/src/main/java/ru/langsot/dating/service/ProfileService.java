@@ -80,6 +80,16 @@ public class ProfileService {
         }
     }
 
+    /** Безвозвратно удаляет учетную запись со всеми данными и файлами фотографий. */
+    @Transactional
+    public void deleteAccount(Long userId) {
+        List<String> keys = profiles.findByUserId(userId)
+                .map(p -> p.getPhotos().stream().map(Photo::getStorageKey).toList())
+                .orElse(List.of());
+        userService.delete(userId);
+        keys.forEach(storage::delete);
+    }
+
     @Transactional(readOnly = true)
     public List<InterestDto> listInterests() {
         return DtoMapper.toDtos(interests.findAllByOrderByCategoryAscNameAsc());

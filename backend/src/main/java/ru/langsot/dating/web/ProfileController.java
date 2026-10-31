@@ -57,8 +57,8 @@ public class ProfileController {
 
     @DeleteMapping("/profile/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deactivate(@CurrentUser Long userId) {
-        userService.deactivate(userId);
+    public void deleteAccount(@CurrentUser Long userId) {
+        profileService.deleteAccount(userId);
     }
 
     @GetMapping("/interests")

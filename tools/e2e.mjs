@@ -94,7 +94,7 @@ const browser = await chromium.launch();
   await ctx.close();
 }
 
-// --- удаление (деактивация) анкеты и восстановление при повторном входе
+// --- удаление учетной записи и новый пользователь при повторном входе
 {
   const db = new pg.Client({ connectionString: DATABASE_URL });
   await db.connect();
@@ -107,13 +107,13 @@ const browser = await chromium.launch();
   await page.click("[data-testid=delete]");
   const gone = await page.waitForSelector("[data-testid=deleted]", { timeout: 5000 }).then(() => true).catch(() => false);
   const st1 = await userStatus(2007);
-  check("С-09", "удаление анкеты: подтверждение вторым нажатием, учетная запись деактивирована", gone && label.includes("еще раз") && st1 === "DEACTIVATED", st1);
+  check("С-09", "удаление: подтверждение вторым нажатием, учетной записи нет в базе", gone && label.includes("еще раз") && st1 === undefined, String(st1));
   await page.screenshot({ path: OUT + "/09_deleted.png" });
   await ctx.close();
   ({ ctx, page } = await open(browser, 2007, "Сергей"));
-  await page.waitForSelector(".tabbar", { timeout: 10000 });
+  await page.waitForSelector("[data-testid=name]", { timeout: 10000 });
   const st2 = await userStatus(2007);
-  check("С-10", "повторный запуск восстанавливает учетную запись", st2 === "ACTIVE", st2);
+  check("С-10", "повторный запуск создает нового пользователя и открывает редактор", st2 === "ACTIVE", st2);
   await ctx.close();
   await db.end();
 }

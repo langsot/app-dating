@@ -37,8 +37,8 @@ export function App() {
         {screen === "deleted" && (
           <div className="center-screen" data-testid="deleted">
             <div className="logo">♥</div>
-            <h1>Анкета удалена</h1>
-            <p>Вас больше не видно в ленте. Чтобы вернуться, просто откройте приложение снова.</p>
+            <h1>Учетная запись удалена</h1>
+            <p>Анкета, фотографии и мэтчи удалены. Открыв приложение снова, вы начнете с чистого листа.</p>
           </div>
         )}
         {screen === "feed" && profile && canBrowse &&
