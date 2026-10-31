@@ -5,6 +5,8 @@ export type LikeType = "LIKE" | "DISLIKE" | "SUPER_LIKE";
 
 export interface AuthResponse { token: string; newUser: boolean; profileComplete: boolean; userId: number; }
 export interface PhotoDto { id: number; url: string; position: number; }
+/** Фото, выбранное до создания анкеты и еще не загруженное на сервер. */
+export interface PendingPhoto { file: File; url: string; }
 export interface ProfileDto {
   userId: number; displayName: string; birthDate: string; age: number; gender: Gender;
   bio: string | null; city: string | null; preferredGender: GenderPreference;

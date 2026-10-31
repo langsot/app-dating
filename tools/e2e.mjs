@@ -83,7 +83,7 @@ const browser = await chromium.launch();
   await page.click("text=Анкета");
   await page.waitForTimeout(800);
   await page.screenshot({ path: OUT + "/07_editor_filled.png", fullPage: true });
-  const nameVal = await page.locator("[data-testid=name]").inputValue();
+  const nameVal = await page.locator("[data-testid=view-name]").innerText();
   check("С-07", "редактор показывает сохраненную анкету", nameVal === "Евгений", nameVal);
 
   await page.click("text=Лента");
