@@ -40,7 +40,8 @@ services:
     restart: unless-stopped
     depends_on:
       - app
-    command: ["tunnel", "--no-autoupdate", "run"]
+    # HTTP/2 по TCP: соединение QUIC (UDP) часто обрывалось по таймауту
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?задайте CLOUDFLARE_TUNNEL_TOKEN в .env}
 
