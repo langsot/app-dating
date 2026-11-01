@@ -17,7 +17,10 @@ services:
       retries: 20
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        FARO_URL: ${FARO_URL:-}
     restart: unless-stopped
     depends_on:
       db:
@@ -45,6 +48,22 @@ services:
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?задайте CLOUDFLARE_TUNNEL_TOKEN в .env}
 
+  # Отправка логов контейнеров в Grafana Cloud; при деплое включается, если задан GRAFANA_LOKI_TOKEN.
+  # Сокет Docker нужен для чтения логов и дает широкие права, поэтому образ зафиксирован и порты не открыты.
+  alloy:
+    image: grafana/alloy:v1.21.3
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    environment:
+      GRAFANA_LOKI_URL: ${GRAFANA_LOKI_URL:-}
+      GRAFANA_LOKI_USER: ${GRAFANA_LOKI_USER:-}
+      GRAFANA_LOKI_TOKEN: ${GRAFANA_LOKI_TOKEN:-}
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+
   # Тесты сервера (45 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
   tests:
     image: maven:3.9-eclipse-temurin-25
@@ -63,5 +82,6 @@ services:
 
 volumes:
   maven-cache:
+  alloy-data:
   db-data:
   photos:

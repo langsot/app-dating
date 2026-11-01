@@ -30,7 +30,10 @@ if (test) {
   const ctx = await esbuild.context({
     entryPoints: ["src/main.tsx"], bundle: true, format: "esm", minify: !watch, sourcemap: watch,
     jsx: "automatic", target: "es2020", outfile: out + "/assets/app.js",
-    define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"' },
+    define: {
+      "process.env.NODE_ENV": watch ? '"development"' : '"production"',
+      FARO_URL: JSON.stringify(process.env.FARO_URL ?? ""),
+    },
   });
   if (watch) { await ctx.watch(); console.log("watching..."); }
   else {

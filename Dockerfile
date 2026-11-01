@@ -6,6 +6,7 @@ WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
+ARG FARO_URL=""
 # build.mjs кладет результат в ../backend/src/main/resources/static
 RUN mkdir -p /src/backend/src/main/resources && npm test && npm run build
 

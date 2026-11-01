@@ -73,6 +73,21 @@ docker compose exec db pg_dump -U dating dating > backup.sql     # резерв�
 ```
 Фотографии хранятся в томе `photos`, база — в `db-data`. `docker compose down -v` удалит все данные.
 
+## Логи в Grafana Cloud
+Логи контейнеров отправляет Alloy, ошибки и логи клиента — Grafana Faro. Без настроек ниже приложение работает как обычно, просто без отправки.
+
+1. Grafana Cloud → **Loki** → Details: скопируйте URL (`.../loki/api/v1/push`) и User. Создайте токен с правом записи логов (Access Policies → `logs:write`).
+2. Grafana Cloud → **Frontend** → создайте приложение и скопируйте адрес сбора (Faro URL). В разрешенные адреса (CORS) добавьте домен приложения.
+3. Задайте значения в окружении `production` и запустите Deploy:
+```bash
+gh variable set FARO_URL --env production --body "<адрес сбора>"
+gh variable set GRAFANA_LOKI_URL --env production --body "<URL Loki>"
+gh variable set GRAFANA_LOKI_USER --env production --body "<User>"
+gh secret set GRAFANA_LOKI_TOKEN --env production
+```
+Логи сервера: Explore → Loki, запрос `{app="app-dating", service="app"}`. Ошибки клиента — в разделе Frontend.
+Данные входа Telegram из адреса страницы вырезаются перед отправкой. Адрес сбора виден в коде клиента: так и задумано, он только принимает данные.
+
 ## 8. Если что-то не работает
 | Признак | Причина и решение |
 |---|---|
