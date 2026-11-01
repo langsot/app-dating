@@ -1,10 +1,21 @@
 // Сборка клиента: TypeScript/TSX -> один модуль JS в статические ресурсы Spring Boot.
 import * as esbuild from "esbuild";
-import { cpSync, mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const out = "../backend/src/main/resources/static";
 const watch = process.argv.includes("--watch");
 const test = process.argv.includes("--test");
+
+/** Добавляет к адресам файлов хеш содержимого: после деплоя страница сразу ссылается на новую версию, минуя кэш. */
+function versionAssets() {
+  let html = readFileSync(out + "/index.html", "utf8");
+  for (const name of ["/assets/app.js", "/assets/styles.css"]) {
+    const hash = createHash("sha256").update(readFileSync(out + name)).digest("hex").slice(0, 12);
+    html = html.replace(`"${name}"`, `"${name}?v=${hash}"`);
+  }
+  writeFileSync(out + "/index.html", html);
+}
 
 if (test) {
   // Отдельная сборка логических модулей для модульных тестов (node --test).
@@ -22,5 +33,10 @@ if (test) {
     define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"' },
   });
   if (watch) { await ctx.watch(); console.log("watching..."); }
-  else { await ctx.rebuild(); await ctx.dispose(); console.log("built ->", out); }
+  else {
+    await ctx.rebuild();
+    await ctx.dispose();
+    versionAssets();
+    console.log("built ->", out);
+  }
 }
