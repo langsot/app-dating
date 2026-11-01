@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Сервер (45 тестов на PostgreSQL)
+    name: Сервер (47 тестов на PostgreSQL)
     runs-on: ubuntu-latest
     services:
       postgres:

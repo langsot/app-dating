@@ -36,7 +36,7 @@ app:
     bot-username: ${BOT_USERNAME:}
     web-app-url: ${WEB_APP_URL:http://localhost:8080}
     init-data-max-age: 24h
-    api-base-url: https://api.telegram.org
+    api-base-url: ${TELEGRAM_API_URL:https://api.telegram.org}
   jwt:
     secret: ${JWT_SECRET}
     ttl: 12h
