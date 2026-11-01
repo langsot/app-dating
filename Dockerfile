@@ -30,4 +30,5 @@ USER app
 ENV STORAGE_DIR=/data/photos PORT=8080
 VOLUME /data/photos
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+# Большой TLS-запрос с постквантовым обменом ключей Java 25 не проходит через сеть сервера: соединение зависает
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-Djdk.tls.namedGroups=x25519,secp256r1", "-jar", "/app/app.jar"]
