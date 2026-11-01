@@ -95,6 +95,17 @@ const browser = await chromium.launch();
   await ctx.close();
 }
 
+// --- пустой список мэтчей не перекрывает вкладки (настоящий клик проверяет доступность кнопки)
+{
+  const { ctx, page } = await open(browser, 2003, "Ольга");
+  await page.waitForSelector(".tabbar", { timeout: 10000 });
+  await page.click("[data-testid=tab-matches]");
+  await page.waitForSelector("[data-testid=matches-empty]", { timeout: 5000 });
+  const moved = await page.click("[data-testid=tab-editor]", { timeout: 3000 }).then(() => true).catch(() => false);
+  check("С-11", "с пустого списка мэтчей можно перейти на другую вкладку", moved && await page.locator("[data-testid=profile-view]").count() === 1);
+  await ctx.close();
+}
+
 // --- удаление учетной записи и новый пользователь при повторном входе
 {
   const db = new pg.Client({ connectionString: DATABASE_URL });
