@@ -65,7 +65,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy-data:/var/lib/alloy/data
 
-  # Тесты сервера (47 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
+  # Тесты сервера (49 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
   tests:
     image: maven:3.9-eclipse-temurin-25
     profiles: ["tests"]

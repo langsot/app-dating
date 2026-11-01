@@ -98,6 +98,17 @@ test("К-09 при обрыве соединения анкета отправл
   assert.equal(uploads, 1);
 });
 
+test("К-11 мэтчи не считаются устаревшими 10 секунд, новый мэтч сбрасывает это", async () => {
+  const api = new BackendApiClient("", async (url) => new Response(
+    url.endsWith("/rate") ? JSON.stringify({ matched: true }) : "[]", { status: 200 }));
+  assert.equal(api.matchesFresh, false);
+  await api.getMatches();
+  assert.equal(api.matchesFresh, true);
+  await api.rate(5, "LIKE");
+  assert.equal(api.matchesFresh, false);
+});
+
+
 test("К-10 интересы запрашиваются один раз, после ошибки — снова; мэтчи запоминаются", async () => {
   let calls = 0;
   const api = new BackendApiClient("", async (url) => {

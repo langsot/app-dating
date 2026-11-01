@@ -16,7 +16,7 @@ import { setTelemetryUser } from "./telemetry";
 export function App() {
   const api = useMemo(() => new BackendApiClient(), []);
   const tg = useMemo(() => new TelegramWebAppAdapter(), []);
-  const feed = useMemo<FeedState>(() => ({ queue: new FeedQueue(), filter: "" }), []);
+  const feed = useMemo<FeedState>(() => ({ queue: new FeedQueue(), filter: "", loadedAt: 0 }), []);
   const [screen, setScreen] = useState<ScreenId>("login");
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [match, setMatch] = useState<MatchDto | null>(null);

@@ -32,6 +32,7 @@ services:
       DB_USER: dating
       DB_PASSWORD: dating
       BOT_TOKEN: 123456789:DEMO-token-for-local-run
+      APP_RATE_LIMIT_PER_MINUTE: 100000   # seed и нагрузочный тест идут с одного адреса
       JWT_SECRET: local-debug-secret-not-for-production-use
       WEB_APP_URL: http://localhost:8080
     volumes:

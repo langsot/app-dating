@@ -9,6 +9,8 @@ const RESEND_DELAY_MS = 500;
 const RESENDABLE = new Set(["GET", "PUT"]);
 /** Зависшее соединение не сообщает об ошибке само: чтение прерывается по таймауту и повторяется. */
 const GET_TIMEOUT_MS = 8000;
+/** Как часто данные вкладки обновляются при повторном открытии. */
+export const REFRESH_INTERVAL_MS = 10_000;
 
 /** Ошибка API с кодом HTTP и сообщением сервера. */
 export class ApiError extends Error {
@@ -24,6 +26,7 @@ export class BackendApiClient {
   private interests: Promise<InterestDto[]> | null = null;
   /** Последний полученный список мэтчей: экран показывает его сразу и обновляет в фоне. */
   lastMatches: MatchDto[] | null = null;
+  private matchesLoadedAt = 0;
 
   constructor(private readonly baseUrl = "", private readonly fetchImpl: typeof fetch = fetch.bind(globalThis)) {}
 
@@ -119,11 +122,19 @@ export class BackendApiClient {
   }
   getFeed(limit = 10): Promise<FeedCardDto[]> { return this.request<FeedCardDto[]>("GET", `/api/feed?limit=${limit}`); }
   rate(userId: number, type: LikeType): Promise<RateResult> {
-    return this.request<RateResult>("POST", `/api/feed/${userId}/rate`, { type });
+    return this.request<RateResult>("POST", `/api/feed/${userId}/rate`, { type }).then((r) => {
+      // Новый мэтч должен появиться в списке сразу
+      if (r.matched) this.matchesLoadedAt = 0;
+      return r;
+    });
   }
   async getMatches(): Promise<MatchDto[]> {
     this.lastMatches = await this.request<MatchDto[]>("GET", "/api/matches");
+    this.matchesLoadedAt = Date.now();
     return this.lastMatches;
   }
+
+  /** Быстрое переключение вкладок не должно порождать запрос на каждое открытие. */
+  get matchesFresh(): boolean { return Date.now() - this.matchesLoadedAt < REFRESH_INTERVAL_MS; }
   unmatch(id: number): Promise<void> { return this.request<void>("DELETE", `/api/matches/${id}`); }
 }

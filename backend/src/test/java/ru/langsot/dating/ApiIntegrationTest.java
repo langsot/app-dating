@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Внешняя система Telegram Bot API заменена тестовым двойником (mock).
  */
 @SpringBootTest(properties = {
+        "app.rate-limit-per-minute=100000",
         "spring.datasource.url=${TEST_DB_URL:jdbc:postgresql://localhost:5432/dating_test}",
         "spring.datasource.username=dating", "spring.datasource.password=${TEST_DB_PASSWORD:dating}",
         "app.telegram.bot-token=" + TestData.BOT_TOKEN,

@@ -4,19 +4,22 @@ import type { Direction, FeedCardDto, MatchDto, ProfileDto, SearchFilter } from 
 import { FeedQueue } from "../logic/feedQueue";
 import { directionToLike } from "../logic/swipe";
 import { formFromProfile } from "../logic/profileForm";
-import { ApiError } from "../api/BackendApiClient";
+import { ApiError, REFRESH_INTERVAL_MS } from "../api/BackendApiClient";
 import { SwipeCard } from "../components/SwipeCard";
 import { FilterPanel } from "../components/FilterPanel";
 
 /** Очередь ленты живет дольше экрана, чтобы переключение вкладок не сбрасывало ее. */
-export interface FeedState { queue: FeedQueue; filter: string }
+export interface FeedState { queue: FeedQueue; filter: string; loadedAt: number }
+
+/** Пустую ленту незачем запрашивать заново при каждом открытии вкладки. */
+const feedFresh = (feed: FeedState) => feed.queue.size > 0 || Date.now() - feed.loadedAt < REFRESH_INTERVAL_MS;
 
 /** Лента анкет: очередь карточек, свайп, кнопки оценки, фильтр. */
 export function FeedScreen({ api, tg, profile, feed, onProfileChanged, onMatch }:
   ScreenProps & { profile: ProfileDto; feed: FeedState; onProfileChanged: (p: ProfileDto) => void; onMatch: (m: MatchDto) => void }) {
   const queue = useRef(feed.queue);
   const [cards, setCards] = useState<FeedCardDto[]>(feed.queue.peek(3));
-  const [loading, setLoading] = useState(feed.queue.size === 0);
+  const [loading, setLoading] = useState(!feedFresh(feed));
   const [error, setError] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -32,6 +35,7 @@ export function FeedScreen({ api, tg, profile, feed, onProfileChanged, onMatch }
     let failure = "";
     try {
       batch = await api.getFeed(10);
+      feed.loadedAt = Date.now();
     } catch (e) {
       failure = e instanceof ApiError ? e.message : "Не удалось загрузить анкеты";
     }
@@ -56,7 +60,7 @@ export function FeedScreen({ api, tg, profile, feed, onProfileChanged, onMatch }
   useEffect(() => {
     // При возврате на вкладку очередь остается прежней, если фильтр не менялся
     const filter = `${profile.preferredGender}|${profile.minAge}|${profile.maxAge}`;
-    if (feed.filter === filter && feed.queue.size > 0) return;
+    if (feed.filter === filter && feedFresh(feed)) return;
     feed.filter = filter;
     reload();
   }, [profile.preferredGender, profile.minAge, profile.maxAge]); // eslint-disable-line react-hooks/exhaustive-deps
