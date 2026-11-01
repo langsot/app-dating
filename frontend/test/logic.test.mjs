@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   swipeDirection, directionToLike, rotationFor,
   ageOn, validateProfile, emptyForm, toggleInterest, MAX_INTERESTS,
-  FeedQueue, stepErrors, fitSize,
+  FeedQueue, stepErrors, fitSize, BackendApiClient,
 } from "./build/logic.mjs";
 
 const card = (id) => ({ userId: id, displayName: "U" + id, age: 25, city: null, bio: null,
@@ -78,4 +78,22 @@ test("К-08 сжатие: большая сторона до 1280 px, пропо
   assert.deepEqual(fitSize(4000, 3000), { width: 1280, height: 960 });
   assert.deepEqual(fitSize(3000, 4000), { width: 960, height: 1280 });
   assert.deepEqual(fitSize(800, 600), { width: 800, height: 600 });
+});
+
+test("К-09 при обрыве соединения анкета отправляется повторно с теми же данными, фото — нет", async () => {
+  const bodies = [];
+  const api = new BackendApiClient("", async (url, init) => {
+    bodies.push(init.body);
+    if (bodies.length === 1) throw new TypeError("Load failed");
+    return new Response(JSON.stringify({ displayName: "Аня" }), { status: 200 });
+  });
+  const saved = await api.saveProfile(emptyForm("Аня"));
+  assert.equal(saved.displayName, "Аня");
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[1], bodies[0]);
+
+  let uploads = 0;
+  const photoApi = new BackendApiClient("", async () => { uploads++; throw new TypeError("Load failed"); });
+  await assert.rejects(photoApi.uploadPhoto(new Blob(["x"])), { status: 0 });
+  assert.equal(uploads, 1);
 });
