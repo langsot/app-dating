@@ -9,6 +9,7 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { MatchListScreen, chatLink } from "./screens/MatchListScreen";
 import { MatchPopup } from "./components/MatchPopup";
 import { TabBar } from "./components/TabBar";
+import { setTelemetryUser } from "./telemetry";
 
 /** Корневой компонент: хранит сессию и переключает экраны. */
 export function App() {
@@ -18,7 +19,8 @@ export function App() {
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [match, setMatch] = useState<MatchDto | null>(null);
 
-  async function onAuthorized(_r: AuthResponse) {
+  async function onAuthorized(r: AuthResponse) {
+    setTelemetryUser(r.userId);
     const p = await api.getMyProfile();
     setProfile(p);
     setScreen(p && p.complete ? "feed" : "onboarding");
