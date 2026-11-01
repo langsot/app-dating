@@ -7,6 +7,8 @@ const GATEWAY_ERRORS = new Set([502, 503, 504, 520, 521, 522, 523, 524, 530]);
 const RESEND_DELAY_MS = 500;
 /** Запросы, которые безопасно отправить повторно: ответ мог потеряться уже после обработки на сервере. */
 const RESENDABLE = new Set(["GET", "PUT"]);
+/** Зависшее соединение не сообщает об ошибке само: чтение прерывается по таймауту и повторяется. */
+const GET_TIMEOUT_MS = 8000;
 
 /** Ошибка API с кодом HTTP и сообщением сервера. */
 export class ApiError extends Error {
@@ -19,6 +21,9 @@ export class ApiError extends Error {
 export class BackendApiClient {
   private token: string | null = null;
   private initData: string | null = null;
+  private interests: Promise<InterestDto[]> | null = null;
+  /** Последний полученный список мэтчей: экран показывает его сразу и обновляет в фоне. */
+  lastMatches: MatchDto[] | null = null;
 
   constructor(private readonly baseUrl = "", private readonly fetchImpl: typeof fetch = fetch.bind(globalThis)) {}
 
@@ -30,9 +35,11 @@ export class BackendApiClient {
     if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
     let resp: Response;
     let text = "";
+    const abort = new AbortController();
+    const timer = method === "GET" ? setTimeout(() => abort.abort(), GET_TIMEOUT_MS) : undefined;
     try {
       resp = await this.fetchImpl(this.baseUrl + path, {
-        method, headers,
+        method, headers, signal: abort.signal,
         body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       });
       // Соединение может оборваться и во время чтения ответа
@@ -41,6 +48,8 @@ export class BackendApiClient {
       console.warn(`[api] ${method} ${path}: соединение оборвалось`, e);
       if (RESENDABLE.has(method) && canResend) return this.resend<T>(method, path, body, canRetry);
       throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.", [String(e)]);
+    } finally {
+      clearTimeout(timer);
     }
     console.info(`[api] ${method} ${path} -> ${resp.status}`);
     // Кратковременный сбой по пути к приложению
@@ -100,11 +109,21 @@ export class BackendApiClient {
   setHidden(hidden: boolean): Promise<void> { return this.request<void>("PATCH", "/api/profile/me/visibility", { hidden }); }
   /** Безвозвратное удаление учетной записи со всеми данными. */
   deleteAccount(): Promise<void> { return this.request<void>("DELETE", "/api/profile/me"); }
-  getInterests(): Promise<InterestDto[]> { return this.request<InterestDto[]>("GET", "/api/interests"); }
+  /** Справочник интересов не меняется за время сессии: запрашивается один раз. */
+  getInterests(): Promise<InterestDto[]> {
+    this.interests ??= this.request<InterestDto[]>("GET", "/api/interests").catch((e) => {
+      this.interests = null;
+      throw e;
+    });
+    return this.interests;
+  }
   getFeed(limit = 10): Promise<FeedCardDto[]> { return this.request<FeedCardDto[]>("GET", `/api/feed?limit=${limit}`); }
   rate(userId: number, type: LikeType): Promise<RateResult> {
     return this.request<RateResult>("POST", `/api/feed/${userId}/rate`, { type });
   }
-  getMatches(): Promise<MatchDto[]> { return this.request<MatchDto[]>("GET", "/api/matches"); }
+  async getMatches(): Promise<MatchDto[]> {
+    this.lastMatches = await this.request<MatchDto[]>("GET", "/api/matches");
+    return this.lastMatches;
+  }
   unmatch(id: number): Promise<void> { return this.request<void>("DELETE", `/api/matches/${id}`); }
 }

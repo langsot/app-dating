@@ -97,3 +97,19 @@ test("К-09 при обрыве соединения анкета отправл
   await assert.rejects(photoApi.uploadPhoto(new Blob(["x"])), { status: 0 });
   assert.equal(uploads, 1);
 });
+
+test("К-10 интересы запрашиваются один раз, после ошибки — снова; мэтчи запоминаются", async () => {
+  let calls = 0;
+  const api = new BackendApiClient("", async (url) => {
+    if (url.endsWith("/api/matches")) return new Response(JSON.stringify([{ id: 1 }]), { status: 200 });
+    calls++;
+    return calls === 1 ? new Response("{}", { status: 400 }) : new Response("[]", { status: 200 });
+  });
+  await assert.rejects(api.getInterests());
+  await api.getInterests();
+  await api.getInterests();
+  assert.equal(calls, 2);
+  assert.equal(api.lastMatches, null);
+  await api.getMatches();
+  assert.deepEqual(api.lastMatches, [{ id: 1 }]);
+});

@@ -18,7 +18,7 @@ export function relativeDate(iso: string, now: Date = new Date()): string {
 
 /** Список мэтчей с переходом в личный чат Telegram. */
 export function MatchListScreen({ api, tg }: ScreenProps) {
-  const [items, setItems] = useState<MatchDto[] | null>(null);
+  const [items, setItems] = useState<MatchDto[] | null>(api.lastMatches);
   const [error, setError] = useState("");
 
   async function refresh() {
