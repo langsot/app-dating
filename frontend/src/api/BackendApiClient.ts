@@ -5,6 +5,8 @@ import type {
 /** Ответы шлюза Cloudflare, когда приложение на мгновение недоступно. */
 const GATEWAY_ERRORS = new Set([502, 503, 504, 520, 521, 522, 523, 524, 530]);
 const RESEND_DELAY_MS = 500;
+/** Запросы, которые безопасно отправить повторно: ответ мог потеряться уже после обработки на сервере. */
+const RESENDABLE = new Set(["GET", "PUT"]);
 
 /** Ошибка API с кодом HTTP и сообщением сервера. */
 export class ApiError extends Error {
@@ -37,12 +39,12 @@ export class BackendApiClient {
       text = await resp.text();
     } catch (e) {
       console.warn(`[api] ${method} ${path}: соединение оборвалось`, e);
-      if (method === "GET" && canResend) return this.resend<T>(method, path, canRetry);
+      if (RESENDABLE.has(method) && canResend) return this.resend<T>(method, path, body, canRetry);
       throw new ApiError(0, "Нет соединения с сервером. Проверьте интернет и повторите попытку.", [String(e)]);
     }
     console.info(`[api] ${method} ${path} -> ${resp.status}`);
-    // Кратковременный сбой по пути к приложению: чтение безопасно повторить
-    if (method === "GET" && canResend && GATEWAY_ERRORS.has(resp.status)) return this.resend<T>(method, path, canRetry);
+    // Кратковременный сбой по пути к приложению
+    if (RESENDABLE.has(method) && canResend && GATEWAY_ERRORS.has(resp.status)) return this.resend<T>(method, path, body, canRetry);
     // Срок токена истек, пока приложение было открыто: входим заново и повторяем запрос один раз
     if (resp.status === 401 && canRetry && this.initData && this.token) {
       await this.authenticate(this.initData);
@@ -60,9 +62,9 @@ export class BackendApiClient {
     return data as T;
   }
 
-  private async resend<T>(method: string, path: string, canRetry: boolean): Promise<T> {
+  private async resend<T>(method: string, path: string, body: unknown, canRetry: boolean): Promise<T> {
     await new Promise((done) => setTimeout(done, RESEND_DELAY_MS));
-    return this.request<T>(method, path, undefined, false, canRetry, false);
+    return this.request<T>(method, path, body, false, canRetry, false);
   }
 
   async authenticate(initData: string): Promise<AuthResponse> {
