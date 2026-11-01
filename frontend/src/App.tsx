@@ -5,7 +5,8 @@ import type { AuthResponse, MatchDto, ProfileDto, ScreenId } from "./types";
 import { LoginScreen } from "./screens/LoginScreen";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { ProfileEditorScreen } from "./screens/ProfileEditorScreen";
-import { FeedScreen } from "./screens/FeedScreen";
+import { FeedScreen, type FeedState } from "./screens/FeedScreen";
+import { FeedQueue } from "./logic/feedQueue";
 import { MatchListScreen, chatLink } from "./screens/MatchListScreen";
 import { MatchPopup } from "./components/MatchPopup";
 import { TabBar } from "./components/TabBar";
@@ -15,6 +16,7 @@ import { setTelemetryUser } from "./telemetry";
 export function App() {
   const api = useMemo(() => new BackendApiClient(), []);
   const tg = useMemo(() => new TelegramWebAppAdapter(), []);
+  const feed = useMemo<FeedState>(() => ({ queue: new FeedQueue(), filter: "" }), []);
   const [screen, setScreen] = useState<ScreenId>("login");
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [match, setMatch] = useState<MatchDto | null>(null);
@@ -46,7 +48,7 @@ export function App() {
           </div>
         )}
         {screen === "feed" && profile && canBrowse &&
-          <FeedScreen api={api} tg={tg} profile={profile} onProfileChanged={setProfile} onMatch={setMatch} />}
+          <FeedScreen api={api} tg={tg} profile={profile} feed={feed} onProfileChanged={setProfile} onMatch={setMatch} />}
         {screen === "feed" && profile && !canBrowse && (
           <div className="center-screen" data-testid="feed-locked">
             <div className="logo">♥</div>

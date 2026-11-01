@@ -8,12 +8,15 @@ import { ApiError } from "../api/BackendApiClient";
 import { SwipeCard } from "../components/SwipeCard";
 import { FilterPanel } from "../components/FilterPanel";
 
+/** Очередь ленты живет дольше экрана, чтобы переключение вкладок не сбрасывало ее. */
+export interface FeedState { queue: FeedQueue; filter: string }
+
 /** Лента анкет: очередь карточек, свайп, кнопки оценки, фильтр. */
-export function FeedScreen({ api, tg, profile, onProfileChanged, onMatch }:
-  ScreenProps & { profile: ProfileDto; onProfileChanged: (p: ProfileDto) => void; onMatch: (m: MatchDto) => void }) {
-  const queue = useRef(new FeedQueue());
-  const [cards, setCards] = useState<FeedCardDto[]>([]);
-  const [loading, setLoading] = useState(true);
+export function FeedScreen({ api, tg, profile, feed, onProfileChanged, onMatch }:
+  ScreenProps & { profile: ProfileDto; feed: FeedState; onProfileChanged: (p: ProfileDto) => void; onMatch: (m: MatchDto) => void }) {
+  const queue = useRef(feed.queue);
+  const [cards, setCards] = useState<FeedCardDto[]>(feed.queue.peek(3));
+  const [loading, setLoading] = useState(feed.queue.size === 0);
   const [error, setError] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -50,7 +53,13 @@ export function FeedScreen({ api, tg, profile, onProfileChanged, onMatch }:
     loadNext();
   }
 
-  useEffect(reload, [profile.preferredGender, profile.minAge, profile.maxAge]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // При возврате на вкладку очередь остается прежней, если фильтр не менялся
+    const filter = `${profile.preferredGender}|${profile.minAge}|${profile.maxAge}`;
+    if (feed.filter === filter && feed.queue.size > 0) return;
+    feed.filter = filter;
+    reload();
+  }, [profile.preferredGender, profile.minAge, profile.maxAge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function onSwipe(dir: Direction) {
     const type = directionToLike(dir);
