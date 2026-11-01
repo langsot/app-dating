@@ -25,7 +25,7 @@ export function MatchListScreen({ api, tg }: ScreenProps) {
     try { setItems(await api.getMatches()); setError(""); }
     catch (e) { setError(e instanceof ApiError ? e.message : "Не удалось загрузить мэтчи"); }
   }
-  useEffect(() => { refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!api.matchesFresh) refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openChat(m: MatchDto) {
     const link = chatLink(m);
