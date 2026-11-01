@@ -19,6 +19,8 @@ import java.util.Map;
 public class TelegramBotClient {
 
     private static final Logger log = LoggerFactory.getLogger(TelegramBotClient.class);
+    private static final int MAX_ATTEMPTS = 3;
+    private static final Duration RETRY_DELAY = Duration.ofSeconds(1);
 
     private final AppProperties.Telegram cfg;
     private final JsonMapper jsonMapper;
@@ -44,23 +46,41 @@ public class TelegramBotClient {
             log.info("Telegram отключен (нет токена), сообщение для {} не отправлено: {}", chatId, text);
             return false;
         }
-        try {
-            HttpRequest req = HttpRequest.newBuilder(URI.create(cfg.apiBaseUrl() + "/bot" + cfg.botToken() + "/sendMessage"))
-                    .timeout(Duration.ofSeconds(10))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonMapper.writeValueAsString(body)))
-                    .build();
-            HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() != 200) {
-                log.warn("Telegram Bot API вернул {}: {}", resp.statusCode(), resp.body());
+        HttpRequest req = HttpRequest.newBuilder(URI.create(cfg.apiBaseUrl() + "/bot" + cfg.botToken() + "/sendMessage"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonMapper.writeValueAsString(body)))
+                .build();
+        // Повтор только при сбое связи или сервера: ответ 4xx при повторе не изменится
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                HttpResponse<String> resp = http.send(req, HttpResponse.BodyHandlers.ofString());
+                if (resp.statusCode() == 200) {
+                    return true;
+                }
+                log.warn("Telegram Bot API вернул {} (попытка {} из {}): {}", resp.statusCode(), attempt, MAX_ATTEMPTS, resp.body());
+                if (resp.statusCode() < 500) {
+                    return false;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            } catch (Exception e) {
+                log.warn("Не удалось отправить сообщение в Telegram (попытка {} из {}): {}", attempt, MAX_ATTEMPTS, e.toString());
+            }
+            if (attempt < MAX_ATTEMPTS && !pause()) {
                 return false;
             }
+        }
+        return false;
+    }
+
+    private boolean pause() {
+        try {
+            Thread.sleep(RETRY_DELAY);
             return true;
-        } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
-            log.warn("Не удалось отправить сообщение в Telegram: {}", e.toString());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             return false;
         }
     }

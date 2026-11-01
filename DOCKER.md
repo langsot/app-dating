@@ -47,7 +47,7 @@ curl "https://api.telegram.org/bot$BOT_TOKEN/setWebhook?url=https://$DOMAIN/api/
 
 ## 6. Тесты в Docker
 ```bash
-docker compose --profile tests run --rm tests     # 45 тестов на PostgreSQL
+docker compose --profile tests run --rm tests     # 47 тестов на PostgreSQL
 ```
 База `dating_test` создается при первом создании тома БД. Если том был создан раньше:
 `docker compose exec db psql -U dating -d dating -c "CREATE DATABASE dating_test"`.
@@ -87,6 +87,16 @@ gh secret set GRAFANA_LOKI_TOKEN --env production
 ```
 Логи сервера: Explore → Loki, запрос `{app="app-dating", service="app"}`. Ошибки клиента — в разделе Frontend.
 Данные входа Telegram из адреса страницы вырезаются перед отправкой. Адрес сбора виден в коде клиента: так и задумано, он только принимает данные.
+
+## Прокси к Telegram
+Если с сервера недоступен `api.telegram.org` (в логах `HTTP connect timed out`), бот не сможет отправлять сообщения. Прокси работает как Cloudflare Worker:
+1. Cloudflare → Workers & Pages → **Create** → Hello World, вставьте код из `cloudflare/telegram-proxy.js` и нажмите Deploy.
+2. Worker → Settings → Domains & Routes → **Add** → Custom domain, например `tg.<ваш домен>`.
+3. Задайте адрес и запустите Deploy:
+```bash
+gh variable set TELEGRAM_API_URL --env production --body "https://tg.<ваш домен>"
+```
+Worker пропускает только `POST /bot<токен>/sendMessage`. Токен проходит через ваш Worker, но не сохраняется.
 
 ## 8. Если что-то не работает
 | Признак | Причина и решение |

@@ -32,6 +32,7 @@ services:
       BOT_TOKEN: ${BOT_TOKEN:?задайте BOT_TOKEN в .env}
       JWT_SECRET: ${JWT_SECRET:?задайте JWT_SECRET в .env (не менее 32 символов)}
       WEB_APP_URL: https://${DOMAIN:?задайте DOMAIN в .env}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-https://api.telegram.org}
     volumes:
       - photos:/data/photos
     # наружу порт не публикуется: доступ только через Cloudflare Tunnel
@@ -64,7 +65,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - alloy-data:/var/lib/alloy/data
 
-  # Тесты сервера (45 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
+  # Тесты сервера (47 шт.) на той же PostgreSQL: docker compose --profile tests run --rm tests
   tests:
     image: maven:3.9-eclipse-temurin-25
     profiles: ["tests"]

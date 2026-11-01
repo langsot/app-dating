@@ -22,7 +22,7 @@ sudo -u postgres psql -c "CREATE DATABASE dating OWNER dating"
 sudo -u postgres psql -c "CREATE DATABASE dating_test OWNER dating"
 
 cd frontend && npm install && npm test && npm run build
-cd ../backend && mvn test          # 45 тестов JUnit (нужен PostgreSQL с базой dating_test)
+cd ../backend && mvn test          # 47 тестов JUnit (нужен PostgreSQL с базой dating_test)
 mvn package -DskipTests            # target/dating-app-1.0.0.jar
 ```
 Адрес тестовой базы можно переопределить переменной `TEST_DB_URL`.

@@ -67,6 +67,7 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           FARO_URL: ${{ vars.FARO_URL }}
+          TELEGRAM_API_URL: ${{ vars.TELEGRAM_API_URL }}
           GRAFANA_LOKI_URL: ${{ vars.GRAFANA_LOKI_URL }}
           GRAFANA_LOKI_USER: ${{ vars.GRAFANA_LOKI_USER }}
           GRAFANA_LOKI_TOKEN: ${{ secrets.GRAFANA_LOKI_TOKEN }}
